@@ -1,41 +1,45 @@
+import 'package:flutter/material.dart';
+
+/// Supported fighting styles
 enum FightStyle {
-  boxing('Boxing'),
-  muayThai('Muay Thai'),
-  bjj('Brazilian Jiu-Jitsu'),
-  mma('MMA'),
-  wrestling('Wrestling'),
-  kickboxing('Kickboxing');
+  boxing('Boxing', Icons.sports_mma, Color(0xFFE53935)),
+  muayThai('Muay Thai', Icons.flash_on, Color(0xFFFFB300)),
+  bjj('BJJ', Icons.all_inclusive, Color(0xFF8E24AA)),
+  mma('MMA', Icons.shield, Color(0xFF3949AB)),
+  wrestling('Wrestling', Icons.fitness_center, Color(0xFF00897B));
 
   final String label;
-  const FightStyle(this.label);
+  final IconData icon;
+  final Color themeColor;
+
+  const FightStyle(this.label, this.icon, this.themeColor);
 }
 
+/// Standard weight classifications
 enum WeightClass {
-  flyweight('Flyweight', 0, 125),
-  bantamweight('Bantamweight', 125.1, 135),
-  featherweight('Featherweight', 135.1, 145),
-  lightweight('Lightweight', 145.1, 155),
-  welterweight('Welterweight', 155.1, 170),
-  middleweight('Middleweight', 170.1, 185),
-  lightHeavyweight('Light Heavyweight', 185.1, 205),
-  heavyweight('Heavyweight', 205.1, 999);
+  flyweight('Flyweight', 125.0),
+  bantamweight('Bantamweight', 135.0),
+  featherweight('Featherweight', 145.0),
+  lightweight('Lightweight', 155.0),
+  welterweight('Welterweight', 170.0),
+  middleweight('Middleweight', 185.0),
+  lightHeavyweight('Light Heavyweight', 205.0),
+  heavyweight('Heavyweight', 265.0);
 
   final String label;
-  final double minWeight;
   final double maxWeight;
 
-  const WeightClass(this.label, this.minWeight, this.maxWeight);
+  const WeightClass(this.label, this.maxWeight);
 
-  static WeightClass fromWeight(double weightInLbs) {
+  static WeightClass fromWeight(double weight) {
     for (final wc in WeightClass.values) {
-      if (weightInLbs >= wc.minWeight && weightInLbs <= wc.maxWeight) {
-        return wc;
-      }
+      if (weight <= wc.maxWeight) return wc;
     }
     return WeightClass.heavyweight;
   }
 }
 
+/// Fighter domain model with Trading Card stats
 class Fighter {
   final String id;
   final String name;
@@ -44,7 +48,9 @@ class Fighter {
   final double weightLbs;
   final FightStyle style;
   final String bio;
-  final String avatarUrl;
+  final String signatureMove;
+  final int powerRating; // Like Card HP / Attack Power (e.g. 85-99)
+  final String record; // e.g., "6-1-0"
 
   const Fighter({
     required this.id,
@@ -54,7 +60,9 @@ class Fighter {
     required this.weightLbs,
     required this.style,
     this.bio = '',
-    this.avatarUrl = '',
+    this.signatureMove = 'Overhand Right',
+    this.powerRating = 85,
+    this.record = '3-1-0',
   });
 
   WeightClass get weightClass => WeightClass.fromWeight(weightLbs);
@@ -66,6 +74,7 @@ class Fighter {
   }
 }
 
+/// Matchup domain model for voting
 class Matchup {
   final String id;
   final Fighter fighterA;
@@ -82,6 +91,7 @@ class Matchup {
   });
 
   int get totalVotes => votesA + votesB;
+
   double get percentageA => totalVotes == 0 ? 50.0 : (votesA / totalVotes) * 100;
   double get percentageB => totalVotes == 0 ? 50.0 : (votesB / totalVotes) * 100;
 }
