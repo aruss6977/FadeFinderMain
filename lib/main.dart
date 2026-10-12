@@ -3,7 +3,16 @@ import 'screens/match_screen.dart';
 import 'screens/vote_screen.dart';
 import 'screens/profile_screen.dart';
 
-void main() {
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const FadeFinderApp());
 }
 
