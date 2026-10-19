@@ -42,7 +42,7 @@ class Fighter {
   final int age;
   final int heightInches;
   final double weightLbs;
-  final FightStyle style;
+  final FightStyle? style;
   final String bio;
   final String avatarUrl;
 
@@ -52,7 +52,7 @@ class Fighter {
     required this.age,
     required this.heightInches,
     required this.weightLbs,
-    required this.style,
+    this.style,
     this.bio = '',
     this.avatarUrl = '',
   });

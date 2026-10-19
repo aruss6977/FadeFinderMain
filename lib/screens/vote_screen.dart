@@ -68,7 +68,7 @@ class _VoteScreenState extends State<VoteScreen> {
                               matchup.fighterA.name,
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
-                            Text(matchup.fighterA.style.label, style: const TextStyle(color: Colors.grey)),
+                            Text(matchup.fighterA.style?.label ?? 'Style not set', style: const TextStyle(color: Colors.grey)),
                             const SizedBox(height: 8),
                             ElevatedButton(
                               onPressed: _voteA,
@@ -86,7 +86,7 @@ class _VoteScreenState extends State<VoteScreen> {
                               matchup.fighterB.name,
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
-                            Text(matchup.fighterB.style.label, style: const TextStyle(color: Colors.grey)),
+                            Text(matchup.fighterB.style?.label ?? 'Style not set', style: const TextStyle(color: Colors.grey)),
                             const SizedBox(height: 8),
                             ElevatedButton(
                               onPressed: _voteB,

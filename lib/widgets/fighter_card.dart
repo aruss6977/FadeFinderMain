@@ -49,14 +49,14 @@ class FighterCard extends StatelessWidget {
             const SizedBox(height: 8),
 
             // Stat Badges: Style & Weight Class
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
               children: [
                 Chip(
-                  label: Text(fighter.style.label),
+                  label: Text(fighter.style?.label ?? 'Style not set'),
                   backgroundColor: Colors.blueGrey.shade100,
                 ),
-                const SizedBox(width: 8),
                 Chip(
                   label: Text(fighter.weightClass.label),
                   backgroundColor: Colors.orange.shade100,
