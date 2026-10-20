@@ -3,6 +3,7 @@ import '../data/mock_fighters.dart';
 import '../models/fighter.dart';
 import '../widgets/fighter_card.dart';
 
+// discovery screen where users browse fighter trading cards with swipe gestures and filter chips
 class MatchScreen extends StatefulWidget {
   const MatchScreen({super.key});
 
@@ -11,30 +12,50 @@ class MatchScreen extends StatefulWidget {
 }
 
 class _MatchScreenState extends State<MatchScreen> {
-  // Working deck of fighters
+  // active deck displayed to the user based on applied filter
   late List<Fighter> _deck;
+
+  // currently active combat style filter; null represents all disciplines
+  FightStyle? _selectedStyleFilter;
 
   @override
   void initState() {
     super.initState();
-    _resetDeck();
+    // initialize card deck on initial render
+    _applyFilterAndReset();
   }
 
-  void _resetDeck() {
+  // filters the mock fighters list by selected style or resets to the full catalog
+  void _applyFilterAndReset([FightStyle? style]) {
     setState(() {
-      _deck = List.from(mockFighters);
+      _selectedStyleFilter = style;
+      if (style == null) {
+        _deck = List.from(mockFighters);
+      } else {
+        _deck = mockFighters.where((f) => f.style == style).toList();
+      }
     });
   }
 
+  // handles both manual swipe gestures and button triggers for passing or challenging
   void _handleSwipe(DismissDirection direction, Fighter fighter) {
     setState(() {
       _deck.removeWhere((item) => item.id == fighter.id);
     });
 
+    // determine whether the action is a challenge (swipe right) or pass (swipe left)
     final isChallenge = direction == DismissDirection.startToEnd;
     final action = isChallenge ? 'CHALLENGED' : 'PASSED';
     final color = isChallenge ? Colors.greenAccent : Colors.redAccent;
 
+    // if challenged, add fighter to active sparring queue avoiding duplicates
+    if (isChallenge) {
+      if (!activeChallenges.any((f) => f.id == fighter.id)) {
+        activeChallenges.insert(0, fighter);
+      }
+    }
+
+    // display quick non-blocking notification banner
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -53,12 +74,15 @@ class _MatchScreenState extends State<MatchScreen> {
               size: 20,
             ),
             const SizedBox(width: 10),
-            Text(
-              '$action: ${fighter.name.toUpperCase()}',
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.8,
+            Expanded(
+              child: Text(
+                '$action: ${fighter.name.toUpperCase()}',
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -67,6 +91,7 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
+  // triggers programmatic swipe from the floating action buttons
   void _triggerProgrammaticSwipe(DismissDirection direction) {
     if (_deck.isEmpty) return;
     final topFighter = _deck.first;
@@ -86,23 +111,51 @@ class _MatchScreenState extends State<MatchScreen> {
         ),
         centerTitle: true,
         actions: [
+          // deck reset action icon
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.amberAccent),
-            onPressed: _resetDeck,
-            tooltip: 'Reload Deck',
+            onPressed: () => _applyFilterAndReset(_selectedStyleFilter),
+            tooltip: 'Reload Current Deck',
           ),
         ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Subtitle banner
+            // horizontal scrollable list of discipline filter chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+              child: Row(
+                children: [
+                  _buildFilterChip(
+                    label: 'ALL',
+                    isSelected: _selectedStyleFilter == null,
+                    onTap: () => _applyFilterAndReset(null),
+                  ),
+                  const SizedBox(width: 8),
+                  ...FightStyle.values.map((style) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: _buildFilterChip(
+                        label: style.label.toUpperCase(),
+                        isSelected: _selectedStyleFilter == style,
+                        activeColor: style.themeColor,
+                        onTap: () => _applyFilterAndReset(style),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+
+            // subtitle instructions banner
             Padding(
               padding: const EdgeInsets.only(top: 4, bottom: 8),
               child: Text(
                 _deck.isNotEmpty
                     ? 'SWIPE RIGHT TO CHALLENGE • SWIPE LEFT TO PASS'
-                    : 'NO MORE FIGHTERS IN YOUR AREA',
+                    : 'NO FIGHTERS MATCHING THIS CRITERIA',
                 style: const TextStyle(
                   color: Colors.white54,
                   fontSize: 10,
@@ -112,7 +165,7 @@ class _MatchScreenState extends State<MatchScreen> {
               ),
             ),
 
-            // Card Stack Arena
+            // trading card stack layout
             Expanded(
               child: Center(
                 child: _deck.isEmpty
@@ -120,7 +173,7 @@ class _MatchScreenState extends State<MatchScreen> {
                     : Stack(
                         alignment: Alignment.center,
                         children: [
-                          // Underneath card preview (if there is a next card)
+                          // underlying peek card rendered beneath the active top card
                           if (_deck.length > 1)
                             Transform.scale(
                               scale: 0.94,
@@ -130,9 +183,9 @@ class _MatchScreenState extends State<MatchScreen> {
                               ),
                             ),
 
-                          // Top Interactive Swiping Card
+                          // top interactive swipeable trading card
                           Dismissible(
-                            key: ValueKey(_deck.first.id),
+                            key: ValueKey('${_deck.first.id}_${_selectedStyleFilter?.name ?? "all"}'),
                             direction: DismissDirection.horizontal,
                             onDismissed: (direction) =>
                                 _handleSwipe(direction, _deck.first),
@@ -155,18 +208,21 @@ class _MatchScreenState extends State<MatchScreen> {
               ),
             ),
 
-            // Action Buttons Bar
+            // bottom action buttons for manual triggers
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Pass Button (Swipe Left trigger)
+                  // pass button (swipe left)
                   FloatingActionButton(
                     heroTag: 'pass_btn',
                     backgroundColor: const Color(0xFF1E1E24),
                     shape: CircleBorder(
-                      side: BorderSide(color: Colors.redAccent.withOpacity(0.5), width: 2),
+                      side: BorderSide(
+                        color: Colors.redAccent.withValues(alpha: 0.5),
+                        width: 2,
+                      ),
                     ),
                     onPressed: _deck.isEmpty
                         ? null
@@ -175,12 +231,15 @@ class _MatchScreenState extends State<MatchScreen> {
                   ),
                   const SizedBox(width: 40),
 
-                  // Challenge Button (Swipe Right trigger)
+                  // challenge button (swipe right)
                   FloatingActionButton(
                     heroTag: 'challenge_btn',
                     backgroundColor: const Color(0xFF1E1E24),
                     shape: CircleBorder(
-                      side: BorderSide(color: Colors.greenAccent.withOpacity(0.5), width: 2),
+                      side: BorderSide(
+                        color: Colors.greenAccent.withValues(alpha: 0.5),
+                        width: 2,
+                      ),
                     ),
                     onPressed: _deck.isEmpty
                         ? null
@@ -196,6 +255,43 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
+  // individual styled filter pill widget
+  Widget _buildFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    Color activeColor = Colors.amberAccent,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? activeColor.withValues(alpha: 0.2)
+              : const Color(0xFF1E1E24),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? activeColor : Colors.white24,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white70,
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+            letterSpacing: 0.6,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // visual badge shown behind card during drag gesture
   Widget _buildSwipeIndicator({
     required Alignment alignment,
     required Color color,
@@ -208,7 +304,7 @@ class _MatchScreenState extends State<MatchScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.6),
+          color: Colors.black.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color, width: 2),
         ),
@@ -232,6 +328,7 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
+  // placeholder view displayed when all cards in current filter have been dismissed
   Widget _buildEmptyState() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -239,7 +336,7 @@ class _MatchScreenState extends State<MatchScreen> {
         Icon(
           Icons.style_outlined,
           size: 70,
-          color: Colors.white.withOpacity(0.2),
+          color: Colors.white.withValues(alpha: 0.2),
         ),
         const SizedBox(height: 16),
         const Text(
@@ -253,7 +350,9 @@ class _MatchScreenState extends State<MatchScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'You have reviewed all available fighters.',
+          _selectedStyleFilter == null
+              ? 'you have reviewed all available fighters.'
+              : 'no more fighters found in ${_selectedStyleFilter!.label}.',
           style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
         ),
         const SizedBox(height: 20),
@@ -264,10 +363,10 @@ class _MatchScreenState extends State<MatchScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
-          onPressed: _resetDeck,
+          onPressed: () => _applyFilterAndReset(null),
           icon: const Icon(Icons.refresh, size: 18),
           label: const Text(
-            'SHUFFLE & RESET DECK',
+            'RESET TO ALL FIGHTERS',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
