@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/fighter.dart';
 
+// trading card widget rendering fighter visual aesthetics, physical specs, and stats
 class FighterCard extends StatelessWidget {
   final Fighter fighter;
 
@@ -16,7 +17,7 @@ class FighterCard extends StatelessWidget {
     return Container(
       width: 320,
       decoration: BoxDecoration(
-        // Outer metallic border (Trading card bevel)
+        // outer metallic border trading card bevel
         gradient: LinearGradient(
           colors: [
             Colors.amber.shade300,
@@ -29,16 +30,16 @@ class FighterCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.35),
+            color: Colors.black.withValues(alpha: 0.35),
             blurRadius: 14,
             offset: const Offset(0, 8),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(8), // Border thickness
+      padding: const EdgeInsets.all(8),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E24), // Dark card inner slate
+          color: const Color(0xFF1E1E24),
           borderRadius: BorderRadius.circular(14),
         ),
         padding: const EdgeInsets.all(12),
@@ -46,33 +47,33 @@ class FighterCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. TOP HEADER: Style Icon, Name, and Weight Class Badge
+            // 1. top header: style icon, athlete name, and weight class badge
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: styleColor.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: styleColor, width: 1.5),
-                      ),
-                      child: Icon(fighter.style.icon, size: 16, color: styleColor),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      fighter.name.toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                  ],
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: styleColor.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: styleColor, width: 1.5),
+                  ),
+                  child: Icon(fighter.style.icon, size: 16, color: styleColor),
                 ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    fighter.name.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
@@ -93,14 +94,14 @@ class FighterCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // 2. CARD ART WINDOW: Framed illustration box
+            // 2. card art window: framed combat illustration
             Container(
               height: 160,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
                 gradient: LinearGradient(
                   colors: [
-                    styleColor.withOpacity(0.8),
+                    styleColor.withValues(alpha: 0.8),
                     const Color(0xFF0F0F12),
                   ],
                   begin: Alignment.topCenter,
@@ -114,16 +115,16 @@ class FighterCard extends StatelessWidget {
                   Icon(
                     Icons.sports_martial_arts,
                     size: 90,
-                    color: Colors.white.withOpacity(0.85),
+                    color: Colors.white.withValues(alpha: 0.85),
                   ),
-                  // Bottom-Left Badge: Record
+                  // bottom left badge: combat record
                   Positioned(
                     bottom: 8,
                     left: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.65),
+                        color: Colors.black.withValues(alpha: 0.65),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: Colors.white30),
                       ),
@@ -142,7 +143,7 @@ class FighterCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
 
-            // Physical stats sub-banner
+            // physical stats sub-banner
             Container(
               padding: const EdgeInsets.symmetric(vertical: 4),
               color: Colors.white10,
@@ -159,11 +160,11 @@ class FighterCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // 3. SIGNATURE MOVE / ATTACK BOX
+            // 3. signature move / technique box
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.white12),
               ),
@@ -198,7 +199,7 @@ class FighterCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // 4. FLAVOR TEXT (Fighter Bio)
+            // 4. flavor text: athlete bio summary
             if (fighter.bio.isNotEmpty)
               Text(
                 '"${fighter.bio}"',
@@ -213,7 +214,7 @@ class FighterCard extends StatelessWidget {
               ),
             const SizedBox(height: 8),
 
-            // 5. CARD FOOTER
+            // 5. card footer edition stamp
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -223,7 +224,11 @@ class FighterCard extends StatelessWidget {
                 ),
                 const Text(
                   '1ST EDITION ★',
-                  style: TextStyle(color: Colors.amberAccent, fontSize: 9, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.amberAccent,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
