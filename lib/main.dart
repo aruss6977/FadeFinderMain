@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'screens/match_screen.dart';
 import 'screens/vote_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/welcome_page.dart';
+import 'screens/account_creation_screen.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -32,7 +34,11 @@ class FadeFinderApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const MainNavigationShell(),
+      home: const WelcomePage(),
+      routes: {
+        '/app': (context) => const MainNavigationShell(),
+        '/create-account': (context) => const AccountCreationScreen(),
+      },
     );
   }
 }
