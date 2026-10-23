@@ -12,7 +12,10 @@ class FighterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final styleColor = fighter.style.themeColor;
+    // safely handle optional combat style with high-contrast fallbacks
+    final styleColor = fighter.style?.themeColor ?? Colors.amberAccent;
+    final styleIcon = fighter.style?.icon ?? Icons.sports_mma;
+    final styleLabel = fighter.style?.label ?? 'Unassigned';
 
     return Container(
       width: 320,
@@ -57,7 +60,7 @@ class FighterCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: styleColor, width: 1.5),
                   ),
-                  child: Icon(fighter.style.icon, size: 16, color: styleColor),
+                  child: Icon(styleIcon, size: 16, color: styleColor),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -170,7 +173,7 @@ class FighterCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(fighter.style.icon, size: 20, color: styleColor),
+                  Icon(styleIcon, size: 20, color: styleColor),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -185,7 +188,7 @@ class FighterCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Signature Technique • ${fighter.style.label}',
+                          'Signature Technique • $styleLabel',
                           style: TextStyle(
                             color: Colors.grey.shade400,
                             fontSize: 11,

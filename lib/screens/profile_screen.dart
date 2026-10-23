@@ -20,21 +20,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E1E24),
+        backgroundColor: const Color(0xFF2B2B2B),
         duration: const Duration(milliseconds: 900),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(color: Colors.amberAccent, width: 1.5),
+          side: const BorderSide(color: Color(0xFFFF3B30), width: 1.5),
         ),
         content: const Row(
           children: [
-            Icon(Icons.remove_circle_outline, color: Colors.amberAccent, size: 20),
+            Icon(Icons.remove_circle_outline, color: Color(0xFFFF3B30), size: 20),
             SizedBox(width: 10),
             Text(
               'CHALLENGE WITHDRAWN',
               style: TextStyle(
-                color: Colors.amberAccent,
+                color: Color(0xFFFF3B30),
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.8,
               ),
@@ -51,13 +51,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final currentUser = mockFighters.first;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF141418),
+      backgroundColor: const Color(0xFFF7F5F0), // warm parchment background
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
           'MY FIGHTER PROFILE',
-          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2),
+          style: TextStyle(
+            color: Color(0xFF1C1B1F),
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.2,
+          ),
         ),
         centerTitle: true,
       ),
@@ -83,12 +87,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E24),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: const Color(0xFFE2DDD5),
                       width: 1,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,14 +112,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               Icon(
                                 Icons.sports_mma,
-                                color: Colors.amberAccent,
+                                color: Color(0xFF1C1B1F),
                                 size: 20,
                               ),
                               SizedBox(width: 8),
                               Text(
                                 'ACTIVE CHALLENGES',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: Color(0xFF1C1B1F),
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1.0,
                                   fontSize: 14,
@@ -122,13 +133,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.amberAccent.withValues(alpha: 0.2),
+                              color: const Color(0xFF1C1B1F),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               '${activeChallenges.length} PENDING',
                               style: const TextStyle(
-                                color: Colors.amberAccent,
+                                color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 11,
                               ),
@@ -137,34 +148,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      const Divider(color: Colors.white12, height: 1),
+                      const Divider(color: Color(0xFFE2DDD5), height: 1),
                       const SizedBox(height: 12),
 
                       // empty state when no fighters have been challenged
                       if (activeChallenges.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 20.0),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20.0),
                           child: Center(
                             child: Column(
                               children: [
                                 Icon(
                                   Icons.inbox_outlined,
                                   size: 36,
-                                  color: Colors.white.withValues(alpha: 0.2),
+                                  color: Color(0xFF79747E),
                                 ),
-                                const SizedBox(height: 8),
+                                SizedBox(height: 8),
                                 Text(
                                   'no pending sparring requests.',
                                   style: TextStyle(
-                                    color: Colors.grey.shade400,
+                                    color: Color(0xFF1C1B1F),
                                     fontSize: 13,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                const Text(
+                                SizedBox(height: 4),
+                                Text(
                                   'swipe right on fighters in discover to challenge them.',
                                   style: TextStyle(
-                                    color: Colors.white38,
+                                    color: Color(0xFF79747E),
                                     fontSize: 11,
                                   ),
                                 ),
@@ -179,18 +190,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: activeChallenges.length,
                           separatorBuilder: (_, __) =>
-                              const Divider(color: Colors.white10, height: 16),
+                              const Divider(color: Color(0xFFF0EBE1), height: 16),
                           itemBuilder: (context, index) {
                             final challengedFighter = activeChallenges[index];
+                            final challengedStyleColor =
+                                challengedFighter.style?.themeColor ??
+                                const Color(0xFF1C1B1F);
+                            final challengedStyleIcon =
+                                challengedFighter.style?.icon ?? Icons.sports_mma;
+                            final challengedStyleLabel =
+                                challengedFighter.style?.label ?? 'Unassigned';
+
                             return Row(
                               children: [
                                 CircleAvatar(
                                   radius: 18,
-                                  backgroundColor: challengedFighter.style.themeColor
-                                      .withValues(alpha: 0.25),
+                                  backgroundColor: challengedStyleColor.withValues(alpha: 0.15),
                                   child: Icon(
-                                    challengedFighter.style.icon,
-                                    color: challengedFighter.style.themeColor,
+                                    challengedStyleIcon,
+                                    color: challengedStyleColor,
                                     size: 18,
                                   ),
                                 ),
@@ -202,15 +220,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       Text(
                                         challengedFighter.name,
                                         style: const TextStyle(
-                                          color: Colors.white,
+                                          color: Color(0xFF1C1B1F),
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
                                         ),
                                       ),
                                       Text(
-                                        '${challengedFighter.style.label} • ${challengedFighter.weightClass.label}',
-                                        style: TextStyle(
-                                          color: Colors.grey.shade400,
+                                        '$challengedStyleLabel • ${challengedFighter.weightClass.label}',
+                                        style: const TextStyle(
+                                          color: Color(0xFF79747E),
                                           fontSize: 11,
                                         ),
                                       ),
@@ -221,7 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   icon: const Icon(
                                     Icons.close,
                                     size: 18,
-                                    color: Colors.white38,
+                                    color: Color(0xFF79747E),
                                   ),
                                   onPressed: () =>
                                       _withdrawChallenge(challengedFighter.id),
