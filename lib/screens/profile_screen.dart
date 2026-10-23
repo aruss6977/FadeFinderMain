@@ -1,16 +1,93 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/mock_fighters.dart';
+import '../models/account_profile.dart';
+import '../models/fighter.dart';
 import '../widgets/fighter_card.dart';
 
 // profile tab displaying the logged-in user combat card and persistent challenge ledger
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.profileStream});
+
+  final Stream<Map<String, dynamic>?>? profileStream;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  late final Stream<Map<String, dynamic>?> _profileStream;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.profileStream != null) {
+      _profileStream = widget.profileStream!;
+    } else {
+      final user = FirebaseAuth.instance.currentUser;
+      _profileStream = user == null
+          ? Stream.value(null)
+          : FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .snapshots()
+              .map((snapshot) => snapshot.data());
+    }
+  }
+
+  Widget _buildAccountProfile(AsyncSnapshot<Map<String, dynamic>?> snapshot) {
+    if (snapshot.hasError) {
+      return const Text(
+        'Could not load your profile. Check Firestore access for your account.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.white70),
+      );
+    }
+    if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
+      return const CircularProgressIndicator(color: Colors.amberAccent);
+    }
+    final data = snapshot.data;
+    if (data == null) {
+      return const Text(
+        'No profile was found for this account.',
+        style: TextStyle(color: Colors.white70),
+      );
+    }
+    try {
+      final profile = AccountProfile.fromMap(data);
+      if (profile.username.isEmpty ||
+          profile.age == null ||
+          profile.heightInches == null ||
+          profile.weightLbs == null) {
+        return const Text(
+          'This account has incomplete profile data.',
+          style: TextStyle(color: Colors.white70),
+        );
+      }
+      return FighterCard(
+        fighter: Fighter(
+          id: data['id'] as String? ?? 'profile',
+          name: profile.fighterName.isEmpty
+              ? 'Fighter name not set'
+              : profile.fighterName,
+          age: profile.age!,
+          heightInches: profile.heightInches!,
+          weightLbs: profile.weightLbs!,
+          style: profile.style,
+          record: '0-0-0',
+          signatureMove: 'None',
+        ),
+        profileEmail: profile.email,
+      );
+    } on TypeError {
+      return const Text(
+        'This account has incomplete profile data.',
+        style: TextStyle(color: Colors.white70),
+      );
+    }
+  }
+
   // removes an athlete from the active challenges queue and refreshes the ledger view
   void _withdrawChallenge(String fighterId) {
     setState(() {
@@ -47,9 +124,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // primary fighter representing the authenticated user profile card
-    final currentUser = mockFighters.first;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5F0), // warm parchment background
       appBar: AppBar(
@@ -64,6 +138,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Sign out',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              activeChallenges.clear();
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -73,9 +157,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               const SizedBox(height: 8),
 
-              // athlete digital combat trading card
-              Center(
-                child: FighterCard(fighter: currentUser),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: StreamBuilder<Map<String, dynamic>?>(
+                  stream: _profileStream,
+                  builder: (context, snapshot) =>
+                      Center(child: _buildAccountProfile(snapshot)),
+                ),
               ),
 
               const SizedBox(height: 24),

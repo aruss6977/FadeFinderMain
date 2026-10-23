@@ -4,10 +4,12 @@ import '../models/fighter.dart';
 // trading card widget rendering fighter visual aesthetics, physical specs, and stats
 class FighterCard extends StatelessWidget {
   final Fighter fighter;
+  final String? profileEmail;
 
   const FighterCard({
     super.key,
     required this.fighter,
+    this.profileEmail,
   });
 
   @override
@@ -194,6 +196,16 @@ class FighterCard extends StatelessWidget {
                             fontSize: 11,
                           ),
                         ),
+                        if (profileEmail != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'EMAIL: ${profileEmail!.isEmpty ? 'Not provided' : profileEmail}',
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -221,12 +233,18 @@ class FighterCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'FADEFINDER #00${fighter.id.replaceAll('f', '')}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 9),
+                Expanded(
+                  child: Text(
+                    profileEmail == null
+                        ? 'FADEFINDER #00${fighter.id.replaceAll('f', '')}'
+                        : 'FADEFINDER',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white38, fontSize: 9),
+                  ),
                 ),
-                const Text(
-                  '1ST EDITION ★',
+                Text(
+                  profileEmail == null ? '1ST EDITION ★' : 'MY PROFILE',
                   style: TextStyle(
                     color: Colors.amberAccent,
                     fontSize: 9,

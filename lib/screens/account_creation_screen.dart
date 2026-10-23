@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'account_creation_attributes_screen.dart';
+import '../services/username_auth_service.dart';
 
 class AccountCreationScreen extends StatefulWidget {
   const AccountCreationScreen({super.key});
@@ -99,9 +100,15 @@ class _AccountCreationScreenState extends State<AccountCreationScreen> {
                   style: const TextStyle(color: Colors.white),
                   autofillHints: const [AutofillHints.username],
                   decoration: _fieldDecoration('Username'),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Enter a username'
-                      : null,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Enter a username';
+                    }
+                    if (!isValidUsername(value)) {
+                      return 'Use 3–24 letters, numbers, or underscores';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 20),
                 TextFormField(

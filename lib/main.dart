@@ -4,8 +4,10 @@ import 'screens/vote_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/welcome_page.dart';
 import 'screens/account_creation_screen.dart';
+import 'screens/sign_in_screen.dart';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -36,9 +38,25 @@ class FadeFinderApp extends StatelessWidget {
       ),
       home: const WelcomePage(),
       routes: {
-        '/app': (context) => const MainNavigationShell(),
+        '/app': (context) => const AuthenticatedApp(),
+        '/sign-in': (context) => const SignInScreen(),
         '/create-account': (context) => const AccountCreationScreen(),
       },
+    );
+  }
+}
+
+class AuthenticatedApp extends StatelessWidget {
+  const AuthenticatedApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      initialData: FirebaseAuth.instance.currentUser,
+      builder: (context, snapshot) => snapshot.data == null
+          ? const WelcomePage()
+          : const MainNavigationShell(),
     );
   }
 }
