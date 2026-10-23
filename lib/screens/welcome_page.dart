@@ -33,8 +33,7 @@ class WelcomePage extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () =>
-                        Navigator.of(context).pushReplacementNamed('/app'),
+                    onPressed: () => Navigator.of(context).pushNamed('/sign-in'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: Colors.black,

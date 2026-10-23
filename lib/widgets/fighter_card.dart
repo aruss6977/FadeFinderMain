@@ -4,15 +4,18 @@ import '../models/fighter.dart';
 // trading card widget rendering fighter visual aesthetics, physical specs, and stats
 class FighterCard extends StatelessWidget {
   final Fighter fighter;
+  final String? profileEmail;
 
   const FighterCard({
     super.key,
     required this.fighter,
+    this.profileEmail,
   });
 
   @override
   Widget build(BuildContext context) {
-    final styleColor = fighter.style.themeColor;
+    final styleColor = fighter.style?.themeColor ?? Colors.grey;
+    final styleIcon = fighter.style?.icon ?? Icons.sports_martial_arts;
 
     return Container(
       width: 320,
@@ -57,7 +60,7 @@ class FighterCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: styleColor, width: 1.5),
                   ),
-                  child: Icon(fighter.style.icon, size: 16, color: styleColor),
+                  child: Icon(styleIcon, size: 16, color: styleColor),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -170,7 +173,7 @@ class FighterCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(fighter.style.icon, size: 20, color: styleColor),
+                  Icon(styleIcon, size: 20, color: styleColor),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -185,12 +188,22 @@ class FighterCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Signature Technique • ${fighter.style.label}',
+                          'Signature Technique • ${fighter.style?.label ?? 'Style not set'}',
                           style: TextStyle(
                             color: Colors.grey.shade400,
                             fontSize: 11,
                           ),
                         ),
+                        if (profileEmail != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'EMAIL: ${profileEmail!.isEmpty ? 'Not provided' : profileEmail}',
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -218,12 +231,18 @@ class FighterCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'FADEFINDER #00${fighter.id.replaceAll('f', '')}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 9),
+                Expanded(
+                  child: Text(
+                    profileEmail == null
+                        ? 'FADEFINDER #00${fighter.id.replaceAll('f', '')}'
+                        : 'FADEFINDER',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white38, fontSize: 9),
+                  ),
                 ),
-                const Text(
-                  '1ST EDITION ★',
+                Text(
+                  profileEmail == null ? '1ST EDITION ★' : 'MY PROFILE',
                   style: TextStyle(
                     color: Colors.amberAccent,
                     fontSize: 9,

@@ -3,11 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/fighter.dart';
+import '../services/username_auth_service.dart';
 
 class AccountCreationData {
   const AccountCreationData({
     required this.email,
     required this.username,
+    required this.fighterName,
     required this.password,
     required this.heightInches,
     required this.weightLbs,
@@ -17,6 +19,7 @@ class AccountCreationData {
 
   final String email;
   final String username;
+  final String fighterName;
   final String password;
   final int heightInches;
   final double weightLbs;
@@ -26,7 +29,7 @@ class AccountCreationData {
 
 Future<void> createFirebaseAccount(AccountCreationData details) async {
   final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-    email: details.email,
+    email: authEmailForUsername(details.username),
     password: details.password,
   );
   final user = credential.user!;
@@ -36,6 +39,8 @@ Future<void> createFirebaseAccount(AccountCreationData details) async {
       'id': user.uid,
       'email': details.email,
       'name': details.username,
+      'fighterName': details.fighterName,
+      'usernameKey': normalizedUsername(details.username),
       'heightInches': details.heightInches,
       'weightLbs': details.weightLbs,
       'age': details.age,
@@ -77,6 +82,7 @@ class _AccountCreationAttributesScreenState
   final _formKey = GlobalKey<FormState>();
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
+  final _fighterNameController = TextEditingController();
   final _ageController = TextEditingController();
   FightStyle? _fightStyle;
   bool _isSubmitting = false;
@@ -92,6 +98,7 @@ class _AccountCreationAttributesScreenState
   void dispose() {
     _heightController.dispose();
     _weightController.dispose();
+    _fighterNameController.dispose();
     _ageController.dispose();
     super.dispose();
   }
@@ -124,6 +131,7 @@ class _AccountCreationAttributesScreenState
       await widget.createAccount(AccountCreationData(
         email: widget.email,
         username: widget.username,
+        fighterName: _fighterNameController.text.trim(),
         password: widget.password,
         heightInches: int.parse(_heightController.text.trim()),
         weightLbs: double.parse(_weightController.text.trim()),
@@ -148,7 +156,9 @@ class _AccountCreationAttributesScreenState
       );
     } on FirebaseAuthException catch (error) {
       debugPrint('Firebase Auth account creation failed: ${error.code}: ${error.message}');
-      _showError('Account creation failed (${error.code}): ${error.message ?? 'Please try again.'}');
+      _showError(error.code == 'email-already-in-use'
+          ? 'That username is already taken.'
+          : 'Account creation failed (${error.code}): ${error.message ?? 'Please try again.'}');
     } on FirebaseException catch (error) {
       debugPrint('Firebase profile save failed: ${error.code}: ${error.message}');
       final message = switch (error.code) {
@@ -211,6 +221,16 @@ class _AccountCreationAttributesScreenState
                         ? 'Enter a valid weight in pounds'
                         : null;
                   },
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _fighterNameController,
+                  style: const TextStyle(color: Colors.white),
+                  textCapitalization: TextCapitalization.words,
+                  decoration: _fieldDecoration('Fighter name'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Enter your fighter name'
+                      : null,
                 ),
                 const SizedBox(height: 20),
                 TextFormField(

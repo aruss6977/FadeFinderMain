@@ -65,27 +65,8 @@ class _VoteScreenState extends State<VoteScreen> {
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
-                    const SizedBox(height: 16),
-
-                    // Fighters Head-to-Head
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        // Fighter A Column
-                        Column(
-                          children: [
-                            Text(
-                              matchup.fighterA.name,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                            Text(matchup.fighterA.style?.label ?? 'Style not set', style: const TextStyle(color: Colors.grey)),
-                            const SizedBox(height: 8),
-                            ElevatedButton(
-                              onPressed: _voteA,
-                              child: const Text('Pick Win'),
-                            ),
-                          ],
-                        ),
+                  ),
+                  const SizedBox(height: 16),
 
                   // Cards Clash Row: Mini Card A vs Mini Card B
                   Row(
@@ -108,7 +89,7 @@ class _VoteScreenState extends State<VoteScreen> {
                             border: Border.all(color: Colors.amberAccent, width: 2),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.amberAccent.withOpacity(0.3),
+                                color: Colors.amberAccent.withValues(alpha: 0.3),
                                 blurRadius: 10,
                               ),
                             ],
@@ -120,13 +101,7 @@ class _VoteScreenState extends State<VoteScreen> {
                               fontWeight: FontWeight.w900,
                               fontSize: 14,
                             ),
-                            Text(matchup.fighterB.style?.label ?? 'Style not set', style: const TextStyle(color: Colors.grey)),
-                            const SizedBox(height: 8),
-                            ElevatedButton(
-                              onPressed: _voteB,
-                              child: const Text('Pick Win'),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
 
@@ -195,7 +170,7 @@ class _VoteScreenState extends State<VoteScreen> {
               borderRadius: BorderRadius.circular(8),
               gradient: LinearGradient(
                 colors: [
-                  fighter.style.themeColor.withOpacity(0.7),
+                  (fighter.style?.themeColor ?? Colors.grey).withValues(alpha: 0.7),
                   Colors.black,
                 ],
                 begin: Alignment.topCenter,
@@ -205,7 +180,7 @@ class _VoteScreenState extends State<VoteScreen> {
             child: Icon(
               Icons.sports_martial_arts,
               size: 50,
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
           const SizedBox(height: 8),
@@ -224,7 +199,7 @@ class _VoteScreenState extends State<VoteScreen> {
           const SizedBox(height: 2),
 
           Text(
-            fighter.style.label,
+            fighter.style?.label ?? 'Style not set',
             style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
           ),
           const SizedBox(height: 2),
