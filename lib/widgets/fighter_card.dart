@@ -14,8 +14,10 @@ class FighterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final styleColor = fighter.style?.themeColor ?? Colors.grey;
-    final styleIcon = fighter.style?.icon ?? Icons.sports_martial_arts;
+    // safely handle optional combat style with high-contrast fallbacks
+    final styleColor = fighter.style?.themeColor ?? Colors.amberAccent;
+    final styleIcon = fighter.style?.icon ?? Icons.sports_mma;
+    final styleLabel = fighter.style?.label ?? 'Unassigned';
 
     return Container(
       width: 320,
@@ -188,7 +190,7 @@ class FighterCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Signature Technique • ${fighter.style?.label ?? 'Style not set'}',
+                          'Signature Technique • $styleLabel',
                           style: TextStyle(
                             color: Colors.grey.shade400,
                             fontSize: 11,
