@@ -1,94 +1,22 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import '../data/mock_fighters.dart';
-import '../models/account_profile.dart';
 import '../models/fighter.dart';
 import '../widgets/fighter_card.dart';
 
 // profile tab displaying the logged-in user combat card and persistent challenge ledger
+// listens to live firestore document updates and manages issued sparring invitations
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, this.profileStream});
-
-  final Stream<Map<String, dynamic>?>? profileStream;
+  const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  late final Stream<Map<String, dynamic>?> _profileStream;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.profileStream != null) {
-      _profileStream = widget.profileStream!;
-    } else {
-      final user = FirebaseAuth.instance.currentUser;
-      _profileStream = user == null
-          ? Stream.value(null)
-          : FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .snapshots()
-              .map((snapshot) => snapshot.data());
-    }
-  }
-
-  Widget _buildAccountProfile(AsyncSnapshot<Map<String, dynamic>?> snapshot) {
-    if (snapshot.hasError) {
-      return const Text(
-        'Could not load your profile. Check Firestore access for your account.',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.white70),
-      );
-    }
-    if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
-      return const CircularProgressIndicator(color: Colors.amberAccent);
-    }
-    final data = snapshot.data;
-    if (data == null) {
-      return const Text(
-        'No profile was found for this account.',
-        style: TextStyle(color: Colors.white70),
-      );
-    }
-    try {
-      final profile = AccountProfile.fromMap(data);
-      if (profile.username.isEmpty ||
-          profile.age == null ||
-          profile.heightInches == null ||
-          profile.weightLbs == null) {
-        return const Text(
-          'This account has incomplete profile data.',
-          style: TextStyle(color: Colors.white70),
-        );
-      }
-      return FighterCard(
-        fighter: Fighter(
-          id: data['id'] as String? ?? 'profile',
-          name: profile.fighterName.isEmpty
-              ? 'Fighter name not set'
-              : profile.fighterName,
-          age: profile.age!,
-          heightInches: profile.heightInches!,
-          weightLbs: profile.weightLbs!,
-          style: profile.style,
-          record: '0-0-0',
-          signatureMove: 'None',
-        ),
-        profileEmail: profile.email,
-      );
-    } on TypeError {
-      return const Text(
-        'This account has incomplete profile data.',
-        style: TextStyle(color: Colors.white70),
-      );
-    }
-  }
-
   // removes an athlete from the active challenges queue and refreshes the ledger view
+  // syncs state immediately with the shared in-memory activeChallenges list
   void _withdrawChallenge(String fighterId) {
     setState(() {
       activeChallenges.removeWhere((fighter) => fighter.id == fighterId);
@@ -122,10 +50,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // parses a firestore user document snapshot map into a domain fighter model
+  // defensively casts dynamic json numbers and matches string keys to fight style enums
+  Fighter _fighterFromSnapshot(Map<String, dynamic> data, String uid) {
+    FightStyle? parsedStyle;
+    final rawStyle = data['style'] as String?;
+    if (rawStyle != null) {
+      for (final s in FightStyle.values) {
+        if (s.name == rawStyle) {
+          parsedStyle = s;
+          break;
+        }
+      }
+    }
+
+    return Fighter(
+      id: uid,
+      name: data['name'] as String? ?? 'Unknown Fighter',
+      age: (data['age'] as num?)?.toInt() ?? 25,
+      heightInches: (data['heightInches'] as num?)?.toInt() ?? 70,
+      weightLbs: (data['weightLbs'] as num?)?.toDouble() ?? 155.0,
+      style: parsedStyle,
+      bio: data['bio'] as String? ?? 'Ready to step into the ring.',
+      signatureMove: data['signatureMove'] as String? ?? 'Overhand Right',
+      powerRating: (data['powerRating'] as num?)?.toInt() ?? 85,
+      record: data['record'] as String? ?? '0-0-0',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // resolve the currently authenticated firebase user instance
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0), // warm parchment background
+      backgroundColor: const Color(0xFFF7F5F0), // warm parchment editorial canvas
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -139,14 +98,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              activeChallenges.clear();
-            },
-          ),
+          // render logout button only when an authenticated session exists
+          if (user != null)
+            IconButton(
+              icon: const Icon(Icons.logout, color: Color(0xFF1C1B1F)),
+              tooltip: 'Sign Out',
+              onPressed: () async {
+                // invalidate session and tear down firebase tokens
+                await FirebaseAuth.instance.signOut();
+                // verify widget is still mounted in element tree before triggering navigation
+                if (context.mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                }
+              },
+            ),
         ],
       ),
       body: SafeArea(
@@ -157,13 +122,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               const SizedBox(height: 8),
 
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: StreamBuilder<Map<String, dynamic>?>(
-                  stream: _profileStream,
-                  builder: (context, snapshot) =>
-                      Center(child: _buildAccountProfile(snapshot)),
-                ),
+              // dynamic athlete digital combat card powered by live firestore stream
+              Center(
+                child: user == null
+                    ? FighterCard(fighter: mockFighters.first)
+                    : StreamBuilder<DocumentSnapshot>>(
+                        // subscribe directly to document changes on the users collection
+                        stream: FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(user.uid)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          // display centered activity indicator while initial snapshot resolves
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Padding(
+                              padding: EdgeInsets.all(40.0),
+                              child: CircularProgressIndicator(color: Color(0xFF1C1B1F)),
+                            );
+                          }
+
+                          // fallback to mock card if cloud document has not yet initialized
+                          if (!snapshot.hasData || !snapshot.data!.exists) {
+                            return FighterCard(fighter: mockFighters.first);
+                          }
+
+                          // unpack firestore document data and construct domain model
+                          final data = snapshot.data!.data()!;
+                          final realFighter = _fighterFromSnapshot(data, user.uid);
+                          return FighterCard(fighter: realFighter);
+                        },
+                      ),
               ),
 
               const SizedBox(height: 24),
@@ -239,7 +227,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const Divider(color: Color(0xFFE2DDD5), height: 1),
                       const SizedBox(height: 12),
 
-                      // empty state when no fighters have been challenged
+                      // empty state rendered when user has issued zero challenges
                       if (activeChallenges.isEmpty)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 20.0),
@@ -277,7 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: activeChallenges.length,
-                          separatorBuilder: (_, __) =>
+                          separatorBuilder: (_, _) =>
                               const Divider(color: Color(0xFFF0EBE1), height: 16),
                           itemBuilder: (context, index) {
                             final challengedFighter = activeChallenges[index];

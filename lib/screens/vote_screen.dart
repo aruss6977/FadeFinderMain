@@ -3,6 +3,7 @@ import '../data/mock_fighters.dart';
 import '../models/fighter.dart';
 
 // arena voting screen supporting multiple matchups, vote locking, and corner switching
+// provides head-to-head comparison cards with real-time percentage distribution bars
 class VoteScreen extends StatefulWidget {
   const VoteScreen({super.key});
 
@@ -11,34 +12,36 @@ class VoteScreen extends StatefulWidget {
 }
 
 class _VoteScreenState extends State<VoteScreen> {
-  // pointer tracking the currently visible matchup index
+  // pointer tracking the currently visible matchup index in the carousel
   int _currentMatchupIndex = 0;
 
-  // stores the user's vote per matchup id: null = unvoted, 'A' = corner a, 'B' = corner b
+  // dictionary storing user votes keyed by matchup id
+  // key: matchup.id, value: 'A' for corner a, 'B' for corner b, or null if unvoted
   final Map<String, String> _userVotes = {};
 
-  // retrieves currently active matchup
+  // dynamic getter returning the matchup currently active in viewport
   Matchup get _currentMatchup => mockMatchups[_currentMatchupIndex];
 
-  // cast or flip a user vote between corners without allowing double votes
+  // casts or flips a user vote between corners without permitting duplicate ballots
+  // adjusts tally counters atomically and updates the persistent selection map
   void _castVote(String corner) {
     final matchup = _currentMatchup;
     final previousVote = _userVotes[matchup.id];
 
+    // guard: tapping the already selected corner does not increment vote totals
     if (previousVote == corner) {
-      // tapping the same corner again does not duplicate the vote
       return;
     }
 
     setState(() {
-      // reverse previous vote tally if user is changing their pick
+      // decrement old corner count if user is flipping their selection
       if (previousVote == 'A') {
         matchup.votesA--;
       } else if (previousVote == 'B') {
         matchup.votesB--;
       }
 
-      // register new selection
+      // register new corner ballot and update user choice record
       if (corner == 'A') {
         matchup.votesA++;
         _userVotes[matchup.id] = 'A';
@@ -48,6 +51,7 @@ class _VoteScreenState extends State<VoteScreen> {
       }
     });
 
+    // clear active snackbar alerts to immediately display vote confirmation
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -76,7 +80,7 @@ class _VoteScreenState extends State<VoteScreen> {
     );
   }
 
-  // navigate to previous clash in list
+  // navigates backward to the preceding clash in the catalog
   void _goToPreviousMatchup() {
     if (_currentMatchupIndex > 0) {
       setState(() {
@@ -85,7 +89,7 @@ class _VoteScreenState extends State<VoteScreen> {
     }
   }
 
-  // navigate to next clash in list
+  // navigates forward to the subsequent clash in the catalog
   void _goToNextMatchup() {
     if (_currentMatchupIndex < mockMatchups.length - 1) {
       setState(() {
@@ -100,7 +104,7 @@ class _VoteScreenState extends State<VoteScreen> {
     final userSelection = _userVotes[matchup.id];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0), // warm parchment background
+      backgroundColor: const Color(0xFFF7F5F0), // warm editorial background canvas
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -118,7 +122,7 @@ class _VoteScreenState extends State<VoteScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // matchup carousel navigator bar
+            // matchup carousel header bar with step counters and directional arrows
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -143,7 +147,7 @@ class _VoteScreenState extends State<VoteScreen> {
             ),
             const SizedBox(height: 8),
 
-            // head-to-head arena battle card
+            // primary container enclosing head-to-head comparison cards and vote meter
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -171,12 +175,12 @@ class _VoteScreenState extends State<VoteScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // cards clash row: corner a vs corner b
+                  // horizontal duel row: corner a mini card vs corner b mini card
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // corner a mini battle card
+                      // corner a fighter card (red team)
                       Expanded(
                         child: _buildMiniBattleCard(
                           fighter: matchup.fighterA,
@@ -186,7 +190,7 @@ class _VoteScreenState extends State<VoteScreen> {
                         ),
                       ),
 
-                      // vs indicator badge
+                      // central vs circular divider icon
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 40.0),
                         child: Container(
@@ -213,7 +217,7 @@ class _VoteScreenState extends State<VoteScreen> {
                         ),
                       ),
 
-                      // corner b mini battle card
+                      // corner b fighter card (blue team)
                       Expanded(
                         child: _buildMiniBattleCard(
                           fighter: matchup.fighterB,
@@ -226,7 +230,7 @@ class _VoteScreenState extends State<VoteScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // percentage and total votes tally
+                  // vote percentage labels and total count readout
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -258,7 +262,8 @@ class _VoteScreenState extends State<VoteScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // high-contrast distribution meter
+                  // two-tone distribution meter visualizing split percentage
+                  // valueColor renders corner a; backgroundColor serves as corner b
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: LinearProgressIndicator(
@@ -277,7 +282,7 @@ class _VoteScreenState extends State<VoteScreen> {
     );
   }
 
-  // mini trading card widget with vote state badges and selection borders
+  // helper widget rendering compact battle cards with selectable state styling
   Widget _buildMiniBattleCard({
     required Fighter fighter,
     required VoidCallback onVote,
@@ -291,6 +296,7 @@ class _VoteScreenState extends State<VoteScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFF7F5F0),
         borderRadius: BorderRadius.circular(12),
+        // selected cards receive darker high-contrast border
         border: Border.all(
           color: isSelected ? const Color(0xFF1C1B1F) : const Color(0xFFE2DDD5),
           width: isSelected ? 2.5 : 1.0,
@@ -299,7 +305,7 @@ class _VoteScreenState extends State<VoteScreen> {
       padding: const EdgeInsets.all(10),
       child: Column(
         children: [
-          // fighter image box with style gradient backdrop
+          // fighter avatar box with discipline-tinted gradient
           Container(
             height: 90,
             width: double.infinity,
@@ -322,7 +328,7 @@ class _VoteScreenState extends State<VoteScreen> {
           ),
           const SizedBox(height: 8),
 
-          // athlete name
+          // athlete name with ellipsis constraint
           Text(
             fighter.name,
             textAlign: TextAlign.center,
@@ -336,14 +342,14 @@ class _VoteScreenState extends State<VoteScreen> {
           ),
           const SizedBox(height: 2),
 
-          // combat style descriptor
+          // combat style descriptor subtitle
           Text(
             styleLabel,
             style: const TextStyle(color: Color(0xFF79747E), fontSize: 11),
           ),
           const SizedBox(height: 2),
 
-          // win-loss-draw record
+          // win-loss record readout
           Text(
             fighter.record,
             style: const TextStyle(
@@ -354,7 +360,7 @@ class _VoteScreenState extends State<VoteScreen> {
           ),
           const SizedBox(height: 10),
 
-          // pick action button / selected status indicator
+          // action button toggling corner pick and visual selection state
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(

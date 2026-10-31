@@ -1,9 +1,11 @@
 import '../models/fighter.dart';
 
-// global in-memory list tracking fighters challenged during swiping sessions
+// global in-memory ledger tracking sparring challenges issued during swipe sessions
+// shared directly between match_screen (which appends) and profile_screen (which renders and removes)
 final List<Fighter> activeChallenges = [];
 
-// static seed catalog of combat sports athletes matching current model definitions
+// static seed catalog of combat sports athletes matching domain model definitions
+// uses compile-time const constructors to minimize runtime memory footprint
 final List<Fighter> mockFighters = [
   const Fighter(
     id: 'f1',
@@ -67,7 +69,8 @@ final List<Fighter> mockFighters = [
   ),
 ];
 
-// static matchups required by vote screen
+// static seed matchups utilized by the arena vote screen
+// points directly to mock_fighters instances by reference to preserve single-source data
 final List<Matchup> mockMatchups = [
   Matchup(
     id: 'm1',

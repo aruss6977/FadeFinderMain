@@ -4,6 +4,7 @@ import '../models/fighter.dart';
 import '../widgets/fighter_card.dart';
 
 // discovery sparring screen with card swiping, undo support, and discipline filters
+// manages an in-memory card deck with gesture dismissals and stateful history tracking
 class MatchScreen extends StatefulWidget {
   const MatchScreen({super.key});
 
@@ -12,28 +13,31 @@ class MatchScreen extends StatefulWidget {
 }
 
 class _MatchScreenState extends State<MatchScreen> {
-  // active discipline filter; null indicates all combat styles
+  // active discipline filter; null indicates all combat styles are displayed
   FightStyle? _selectedStyle;
 
-  // active deck of fighters available for swiping
+  // active working deck of fighters available for swiping in current session
   late List<Fighter> _filteredDeck;
 
-  // history stack enabling users to undo their previous pass or challenge action
+  // lifo history stack enabling users to undo their previous pass or challenge action
   final List<Fighter> _actionHistory = [];
 
   @override
   void initState() {
     super.initState();
+    // initialize deck with seed catalog during first widget lifecycle mount
     _resetDeck();
   }
 
-  // rebuilds deck based on the active style filter
+  // rebuilds deck based on the active style filter and clears undo stack
   void _resetDeck() {
     setState(() {
       _actionHistory.clear();
       if (_selectedStyle == null) {
+        // create fresh copy of catalog when viewing all disciplines
         _filteredDeck = List.from(mockFighters);
       } else {
+        // filter catalog matching exact selected fight style
         _filteredDeck = mockFighters
             .where((fighter) => fighter.style == _selectedStyle)
             .toList();
@@ -41,7 +45,8 @@ class _MatchScreenState extends State<MatchScreen> {
     });
   }
 
-  // handles user challenging an athlete (right swipe or glove button)
+  // handles user challenging an athlete (right swipe or green glove button)
+  // pushes card to action history, drops from deck, and queues into global active challenges
   void _challengeFighter(Fighter fighter) {
     setState(() {
       _actionHistory.add(fighter);
@@ -58,7 +63,8 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
-  // handles passing on an athlete (left swipe or x button)
+  // handles passing on an athlete (left swipe or red x button)
+  // records card in action history and drops it from the visible deck
   void _passFighter(Fighter fighter) {
     setState(() {
       _actionHistory.add(fighter);
@@ -73,13 +79,16 @@ class _MatchScreenState extends State<MatchScreen> {
   }
 
   // reverts the most recent swipe or button action and pushes card back on top of deck
+  // also un-queues challenge from global active challenges if it was previously challenged
   void _undoLastAction() {
     if (_actionHistory.isEmpty) return;
 
+    // pop latest fighter off lifo stack
     final lastFighter = _actionHistory.removeLast();
     setState(() {
-      // remove from challenges queue if it was challenged during that step
+      // remove from global challenge queue to prevent ghost challenges
       activeChallenges.removeWhere((f) => f.id == lastFighter.id);
+      // re-insert card at top index of the active deck
       _filteredDeck.insert(0, lastFighter);
     });
 
@@ -90,12 +99,13 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
-  // helper displaying brief floating snackbar notifications
+  // helper displaying brief floating snackbar notifications with action feedback
   void _showNotification({
     required IconData icon,
     required String message,
     required Color accentColor,
   }) {
+    // clear active snackbars to prevent notification queue buildup on rapid swiping
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -129,7 +139,7 @@ class _MatchScreenState extends State<MatchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0), // warm parchment background
+      backgroundColor: const Color(0xFFF7F5F0), // warm parchment background canvas
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -143,6 +153,7 @@ class _MatchScreenState extends State<MatchScreen> {
         ),
         centerTitle: true,
         actions: [
+          // appbar undo button enabled only when action history contains cards
           IconButton(
             icon: const Icon(Icons.undo, color: Color(0xFF1C1B1F)),
             tooltip: 'Undo Last Action',
@@ -172,7 +183,7 @@ class _MatchScreenState extends State<MatchScreen> {
 
             const SizedBox(height: 12),
 
-            // action hint prompt
+            // action instruction prompt
             const Text(
               'SWIPE RIGHT TO CHALLENGE • SWIPE LEFT TO PASS',
               style: TextStyle(
@@ -186,6 +197,7 @@ class _MatchScreenState extends State<MatchScreen> {
             const SizedBox(height: 16),
 
             // swipeable trading card arena
+            // renders stacked cards or empty state when deck is exhausted
             Expanded(
               child: Center(
                 child: _filteredDeck.isEmpty
@@ -193,7 +205,7 @@ class _MatchScreenState extends State<MatchScreen> {
                     : Stack(
                         alignment: Alignment.center,
                         children: [
-                          // underlying card in stack
+                          // underlying card in stack rendered with depth scaling and opacity
                           if (_filteredDeck.length > 1)
                             Transform.scale(
                               scale: 0.94,
@@ -203,15 +215,17 @@ class _MatchScreenState extends State<MatchScreen> {
                               ),
                             ),
 
-                          // active top card wrapped with dismissible gestures
+                          // active top card wrapped with dismissible gesture recognizer
                           Dismissible(
                             key: ValueKey(_filteredDeck.first.id),
                             direction: DismissDirection.horizontal,
                             onDismissed: (direction) {
                               final swiped = _filteredDeck.first;
                               if (direction == DismissDirection.endToStart) {
+                                // left swipe represents a pass
                                 _passFighter(swiped);
                               } else {
+                                // right swipe represents a challenge
                                 _challengeFighter(swiped);
                               }
                             },
@@ -224,14 +238,14 @@ class _MatchScreenState extends State<MatchScreen> {
 
             const SizedBox(height: 16),
 
-            // programmatic action control buttons
+            // programmatic action control buttons for tap-based interaction
             if (_filteredDeck.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 20.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // pass button (red cross)
+                    // pass button triggers left-dismiss logic
                     InkWell(
                       onTap: () => _passFighter(_filteredDeck.first),
                       borderRadius: BorderRadius.circular(40),
@@ -254,7 +268,7 @@ class _MatchScreenState extends State<MatchScreen> {
                     ),
                     const SizedBox(width: 36),
 
-                    // challenge button (green glove)
+                    // challenge button triggers right-dismiss logic
                     InkWell(
                       onTap: () => _challengeFighter(_filteredDeck.first),
                       borderRadius: BorderRadius.circular(40),
@@ -284,7 +298,7 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
-  // discipline filter chip builder
+  // discipline filter chip builder mapping style enum to material filter chip
   Widget _buildFilterChip(String label, FightStyle? style) {
     final isSelected = _selectedStyle == style;
 
@@ -319,7 +333,7 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
-  // empty deck state widget
+  // empty deck state widget displayed when all cards in active filter have been swiped
   Widget _buildEmptyDeckState() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,

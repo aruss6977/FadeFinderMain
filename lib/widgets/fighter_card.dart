@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/fighter.dart';
 
-// trading card widget rendering fighter visual aesthetics, physical specs, and stats
+// trading card widget rendering fighter aesthetics, physical specs, and stats
+// designed to mimic a physical collectible combat card with metallic foil borders
 class FighterCard extends StatelessWidget {
   final Fighter fighter;
   final String? profileEmail;
@@ -14,7 +15,7 @@ class FighterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // safely handle optional combat style with high-contrast fallbacks
+    // safely unpack optional fight style with fallback tokens for unassigned fighters
     final styleColor = fighter.style?.themeColor ?? Colors.amberAccent;
     final styleIcon = fighter.style?.icon ?? Icons.sports_mma;
     final styleLabel = fighter.style?.label ?? 'Unassigned';
@@ -22,7 +23,7 @@ class FighterCard extends StatelessWidget {
     return Container(
       width: 320,
       decoration: BoxDecoration(
-        // outer metallic border trading card bevel
+        // outer container gradient produces the simulated metallic foil bevel
         gradient: LinearGradient(
           colors: [
             Colors.amber.shade300,
@@ -34,6 +35,7 @@ class FighterCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
+          // soft elevation shadow anchoring card over dark background canvases
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.35),
             blurRadius: 14,
@@ -43,6 +45,7 @@ class FighterCard extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(8),
       child: Container(
+        // inner container acts as the dark matte surface holding card content
         decoration: BoxDecoration(
           color: const Color(0xFF1E1E24),
           borderRadius: BorderRadius.circular(14),
@@ -52,9 +55,10 @@ class FighterCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. top header: style icon, athlete name, and weight class badge
+            // 1. top header row: style badge, athlete name, and weight class badge
             Row(
               children: [
+                // circular disc displaying the discipline icon
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
@@ -65,6 +69,7 @@ class FighterCard extends StatelessWidget {
                   child: Icon(styleIcon, size: 16, color: styleColor),
                 ),
                 const SizedBox(width: 8),
+                // expanded constraint prevents long fighter names from causing row overflow
                 Expanded(
                   child: Text(
                     fighter.name.toUpperCase(),
@@ -79,6 +84,7 @@ class FighterCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
+                // weight class badge rendered with pill border
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
@@ -99,7 +105,7 @@ class FighterCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // 2. card art window: framed combat illustration
+            // 2. card art window: stylized combat portrait frame with record overlay
             Container(
               height: 160,
               decoration: BoxDecoration(
@@ -117,12 +123,13 @@ class FighterCard extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
+                  // placeholder martial arts silhouette centered in frame
                   Icon(
                     Icons.sports_martial_arts,
                     size: 90,
                     color: Colors.white.withValues(alpha: 0.85),
                   ),
-                  // bottom left badge: combat record
+                  // pinned combat record badge in bottom-left corner of the portrait
                   Positioned(
                     bottom: 8,
                     left: 8,
@@ -148,7 +155,7 @@ class FighterCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
 
-            // physical stats sub-banner
+            // physical metrics bar displaying age, imperial height, and scaled weight
             Container(
               padding: const EdgeInsets.symmetric(vertical: 4),
               color: Colors.white10,
@@ -165,7 +172,7 @@ class FighterCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // 3. signature move / technique box
+            // 3. signature move and discipline description container
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -196,6 +203,7 @@ class FighterCard extends StatelessWidget {
                             fontSize: 11,
                           ),
                         ),
+                        // conditionally render email details if card is mounted in profile context
                         if (profileEmail != null) ...[
                           const SizedBox(height: 4),
                           Text(
@@ -214,7 +222,7 @@ class FighterCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // 4. flavor text: athlete bio summary
+            // 4. athlete bio quote / flavor text section
             if (fighter.bio.isNotEmpty)
               Text(
                 '"${fighter.bio}"',
@@ -229,7 +237,7 @@ class FighterCard extends StatelessWidget {
               ),
             const SizedBox(height: 8),
 
-            // 5. card footer edition stamp
+            // 5. bottom card stamp: serial number and edition label
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -245,7 +253,7 @@ class FighterCard extends StatelessWidget {
                 ),
                 Text(
                   profileEmail == null ? '1ST EDITION ★' : 'MY PROFILE',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.amberAccent,
                     fontSize: 9,
                     fontWeight: FontWeight.bold,

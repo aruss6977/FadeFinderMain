@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
-// supported combat disciplines with high-contrast, accessible ui theme accents
+// supported combat disciplines with associated presentation metadata
+// each enum value carries its display label, material icon, and theme accent color
 enum FightStyle {
-  boxing('Boxing', Icons.sports_mma, Color(0xFFFF3B30)), // vivid signal vermilion
-  muayThai('Muay Thai', Icons.flash_on, Color(0xFFFF9500)), // warm amber orange
-  bjj('BJJ', Icons.all_inclusive, Color(0xFFAF52DE)), // vibrant lavender violet
-  mma('MMA', Icons.shield, Color(0xFF007AFF)), // vivid steel blue
-  wrestling('Wrestling', Icons.fitness_center, Color(0xFF34C759)); // accessible clean emerald
+  boxing('Boxing', Icons.sports_mma, Color(0xFFFF3B30)),
+  muayThai('Muay Thai', Icons.flash_on, Color(0xFFFF9500)),
+  bjj('BJJ', Icons.all_inclusive, Color(0xFFAF52DE)),
+  mma('MMA', Icons.shield, Color(0xFF007AFF)),
+  wrestling('Wrestling', Icons.fitness_center, Color(0xFF34C759));
 
+  // visual and textual descriptors attached to each style
   final String label;
   final IconData icon;
   final Color themeColor;
@@ -15,7 +17,7 @@ enum FightStyle {
   const FightStyle(this.label, this.icon, this.themeColor);
 }
 
-// standard combat weight classifications
+// standard combat weight classifications bounded by maximum weight limits
 enum WeightClass {
   flyweight('Flyweight', 125.0),
   bantamweight('Bantamweight', 135.0),
@@ -26,12 +28,14 @@ enum WeightClass {
   lightHeavyweight('Light Heavyweight', 205.0),
   heavyweight('Heavyweight', 265.0);
 
+  // display name and upper weight limit in pounds
   final String label;
   final double maxWeight;
 
   const WeightClass(this.label, this.maxWeight);
 
-  // resolves weight class category from raw numeric scale reading
+  // resolves weight class category from a raw numeric scale reading
+  // iterates through divisions in ascending order and falls back to heavyweight
   static WeightClass fromWeight(double weight) {
     for (final wc in WeightClass.values) {
       if (weight <= wc.maxWeight) return wc;
@@ -41,6 +45,7 @@ enum WeightClass {
 }
 
 // athlete domain model encapsulating physical specs, bio, and performance stats
+// provides immutable state for discovery cards, profiles, and sparring ledgers
 class Fighter {
   final String id;
   final String name;
@@ -66,10 +71,11 @@ class Fighter {
     this.record = '3-1-0',
   });
 
-  // dynamic weight class lookup derived from numeric weight
+  // dynamic weight class lookup derived directly from numeric weight
   WeightClass get weightClass => WeightClass.fromWeight(weightLbs);
 
   // imperial formatted height string representation (e.g. 5'11")
+  // uses integer truncating division (~/) for feet and modulo (%) for remainder inches
   String get formattedHeight {
     final feet = heightInches ~/ 12;
     final inches = heightInches % 12;
@@ -78,6 +84,7 @@ class Fighter {
 }
 
 // matchup domain model representing a head-to-head arena voting clash
+// holds mutable vote counters that update live when users cast ballots
 class Matchup {
   final String id;
   final Fighter fighterA;
@@ -97,8 +104,10 @@ class Matchup {
   int get totalVotes => votesA + votesB;
 
   // proportional percentage distribution for corner a
+  // defaults to 50.0 to prevent division by zero when no votes exist
   double get percentageA => totalVotes == 0 ? 50.0 : (votesA / totalVotes) * 100;
 
   // proportional percentage distribution for corner b
+  // defaults to 50.0 to prevent division by zero when no votes exist
   double get percentageB => totalVotes == 0 ? 50.0 : (votesB / totalVotes) * 100;
 }
