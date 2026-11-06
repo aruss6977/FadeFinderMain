@@ -1,10 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../data/mock_fighters.dart';
 import '../models/fighter.dart';
 import '../widgets/fighter_card.dart';
 
-// discovery sparring screen with card swiping, undo support, and discipline filters
-// manages an in-memory card deck with gesture dismissals and stateful history tracking
 class MatchScreen extends StatefulWidget {
   const MatchScreen({super.key});
 
@@ -13,58 +13,114 @@ class MatchScreen extends StatefulWidget {
 }
 
 class _MatchScreenState extends State<MatchScreen> {
-  // active discipline filter; null indicates all combat styles are displayed
   FightStyle? _selectedStyle;
-
-  // active working deck of fighters available for swiping in current session
-  late List<Fighter> _filteredDeck;
-
-  // lifo history stack enabling users to undo their previous pass or challenge action
+  List<Fighter> _allFighters = [];
+  List<Fighter> _filteredDeck = [];
   final List<Fighter> _actionHistory = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    // initialize deck with seed catalog during first widget lifecycle mount
-    _resetDeck();
+    _fetchFightersFromFirestore();
   }
 
-  // rebuilds deck based on the active style filter and clears undo stack
+  Fighter _fighterFromSnapshot(Map<String, dynamic> data, String uid) {
+    FightStyle? parsedStyle;
+    final rawStyle = (data['style'] as String?)?.toLowerCase();
+    if (rawStyle != null) {
+      for (final s in FightStyle.values) {
+        if (s.name.toLowerCase() == rawStyle || s.label.toLowerCase() == rawStyle) {
+          parsedStyle = s;
+          break;
+        }
+      }
+    }
+
+    return Fighter(
+      id: uid,
+      name: data['name'] as String? ?? 'Fighter',
+      age: (data['age'] as num?)?.toInt() ?? 25,
+      heightInches: (data['heightInches'] as num?)?.toInt() ?? 70,
+      weightLbs: (data['weightLbs'] as num?)?.toDouble() ?? 155.0,
+      style: parsedStyle,
+      bio: data['bio'] as String? ?? 'Ready to spar.',
+      signatureMove: data['signatureMove'] as String? ?? 'Cross',
+      powerRating: (data['powerRating'] as num?)?.toInt() ?? 80,
+      record: data['record'] as String? ?? '0-0-0',
+    );
+  }
+
+  Future<void> _fetchFightersFromFirestore() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      final snapshot = await FirebaseFirestore.instance.collection('users').get();
+
+      final remoteFighters = snapshot.docs
+          .where((doc) => doc.id != currentUid)
+          .map((doc) => _fighterFromSnapshot(doc.data(), doc.id))
+          .toList();
+
+      for (final fighter in remoteFighters) {
+        getOrCreateChatThread(fighter);
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _allFighters = remoteFighters;
+        _applyFilter();
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Firestore fetch error: $e');
+      if (!mounted) return;
+      setState(() {
+        _allFighters = [];
+        _applyFilter();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _applyFilter() {
+    _actionHistory.clear();
+    if (_selectedStyle == null) {
+      _filteredDeck = List.from(_allFighters);
+    } else {
+      _filteredDeck = _allFighters
+          .where((fighter) => fighter.style == _selectedStyle)
+          .toList();
+    }
+  }
+
   void _resetDeck() {
     setState(() {
-      _actionHistory.clear();
-      if (_selectedStyle == null) {
-        // create fresh copy of catalog when viewing all disciplines
-        _filteredDeck = List.from(mockFighters);
-      } else {
-        // filter catalog matching exact selected fight style
-        _filteredDeck = mockFighters
-            .where((fighter) => fighter.style == _selectedStyle)
-            .toList();
-      }
+      _applyFilter();
     });
   }
 
-  // handles user challenging an athlete (right swipe or green glove button)
-  // pushes card to action history, drops from deck, and queues into global active challenges
   void _challengeFighter(Fighter fighter) {
     setState(() {
       _actionHistory.add(fighter);
       _filteredDeck.removeWhere((f) => f.id == fighter.id);
       if (!activeChallenges.any((f) => f.id == fighter.id)) {
         activeChallenges.add(fighter);
+        getOrCreateChatThread(fighter);
       }
     });
 
     _showNotification(
       icon: Icons.sports_mma,
-      message: 'CHALLENGED ${fighter.name.toUpperCase()}!',
+      message: 'CHALLENGED ${fighter.name.toUpperCase()}! CHAT OPENED.',
       accentColor: const Color(0xFF2E7D32),
     );
   }
 
-  // handles passing on an athlete (left swipe or red x button)
-  // records card in action history and drops it from the visible deck
   void _passFighter(Fighter fighter) {
     setState(() {
       _actionHistory.add(fighter);
@@ -78,17 +134,12 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
-  // reverts the most recent swipe or button action and pushes card back on top of deck
-  // also un-queues challenge from global active challenges if it was previously challenged
   void _undoLastAction() {
     if (_actionHistory.isEmpty) return;
 
-    // pop latest fighter off lifo stack
     final lastFighter = _actionHistory.removeLast();
     setState(() {
-      // remove from global challenge queue to prevent ghost challenges
       activeChallenges.removeWhere((f) => f.id == lastFighter.id);
-      // re-insert card at top index of the active deck
       _filteredDeck.insert(0, lastFighter);
     });
 
@@ -99,13 +150,11 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
-  // helper displaying brief floating snackbar notifications with action feedback
   void _showNotification({
     required IconData icon,
     required String message,
     required Color accentColor,
   }) {
-    // clear active snackbars to prevent notification queue buildup on rapid swiping
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -139,21 +188,25 @@ class _MatchScreenState extends State<MatchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0), // warm parchment background canvas
+      backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
           'DISCOVER FIGHTERS',
           style: TextStyle(
-            color: Color(0xFF1C1B1F), // dark ink header
+            color: Color(0xFF1C1B1F),
             fontWeight: FontWeight.w900,
             letterSpacing: 1.2,
           ),
         ),
         centerTitle: true,
         actions: [
-          // appbar undo button enabled only when action history contains cards
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Color(0xFF1C1B1F)),
+            tooltip: 'Reload Accounts',
+            onPressed: _fetchFightersFromFirestore,
+          ),
           IconButton(
             icon: const Icon(Icons.undo, color: Color(0xFF1C1B1F)),
             tooltip: 'Undo Last Action',
@@ -162,143 +215,126 @@ class _MatchScreenState extends State<MatchScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
-
-            // horizontal filter pills for combat disciplines
-            SizedBox(
-              height: 38,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFF1C1B1F)),
+              )
+            : Column(
                 children: [
-                  _buildFilterChip('ALL', null),
-                  ...FightStyle.values.map(
-                    (style) => _buildFilterChip(style.label.toUpperCase(), style),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 38,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      children: [
+                        _buildFilterChip('ALL', null),
+                        ...FightStyle.values.map(
+                          (style) => _buildFilterChip(style.label.toUpperCase(), style),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // action instruction prompt
-            const Text(
-              'SWIPE RIGHT TO CHALLENGE • SWIPE LEFT TO PASS',
-              style: TextStyle(
-                color: Color(0xFF79747E),
-                fontSize: 10,
-                letterSpacing: 0.8,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // swipeable trading card arena
-            // renders stacked cards or empty state when deck is exhausted
-            Expanded(
-              child: Center(
-                child: _filteredDeck.isEmpty
-                    ? _buildEmptyDeckState()
-                    : Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // underlying card in stack rendered with depth scaling and opacity
-                          if (_filteredDeck.length > 1)
-                            Transform.scale(
-                              scale: 0.94,
-                              child: Opacity(
-                                opacity: 0.6,
-                                child: FighterCard(fighter: _filteredDeck[1]),
-                              ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'SWIPE RIGHT TO CHALLENGE • SWIPE LEFT TO PASS',
+                    style: TextStyle(
+                      color: Color(0xFF79747E),
+                      fontSize: 10,
+                      letterSpacing: 0.8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: Center(
+                      child: _filteredDeck.isEmpty
+                          ? _buildEmptyDeckState()
+                          : Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                if (_filteredDeck.length > 1)
+                                  Transform.scale(
+                                    scale: 0.94,
+                                    child: Opacity(
+                                      opacity: 0.6,
+                                      child: FighterCard(fighter: _filteredDeck[1]),
+                                    ),
+                                  ),
+                                Dismissible(
+                                  key: ValueKey(_filteredDeck.first.id),
+                                  direction: DismissDirection.horizontal,
+                                  onDismissed: (direction) {
+                                    final swiped = _filteredDeck.first;
+                                    if (direction == DismissDirection.endToStart) {
+                                      _passFighter(swiped);
+                                    } else {
+                                      _challengeFighter(swiped);
+                                    }
+                                  },
+                                  child: FighterCard(fighter: _filteredDeck.first),
+                                ),
+                              ],
                             ),
-
-                          // active top card wrapped with dismissible gesture recognizer
-                          Dismissible(
-                            key: ValueKey(_filteredDeck.first.id),
-                            direction: DismissDirection.horizontal,
-                            onDismissed: (direction) {
-                              final swiped = _filteredDeck.first;
-                              if (direction == DismissDirection.endToStart) {
-                                // left swipe represents a pass
-                                _passFighter(swiped);
-                              } else {
-                                // right swipe represents a challenge
-                                _challengeFighter(swiped);
-                              }
-                            },
-                            child: FighterCard(fighter: _filteredDeck.first),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_filteredDeck.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 20.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          InkWell(
+                            onTap: () => _passFighter(_filteredDeck.first),
+                            borderRadius: BorderRadius.circular(40),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                border: Border.all(color: const Color(0xFFFF3B30), width: 2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.08),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.close, color: Color(0xFFFF3B30), size: 28),
+                            ),
+                          ),
+                          const SizedBox(width: 36),
+                          InkWell(
+                            onTap: () => _challengeFighter(_filteredDeck.first),
+                            borderRadius: BorderRadius.circular(40),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                border: Border.all(color: const Color(0xFF34C759), width: 2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.08),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.sports_mma, color: Color(0xFF34C759), size: 28),
+                            ),
                           ),
                         ],
                       ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // programmatic action control buttons for tap-based interaction
-            if (_filteredDeck.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // pass button triggers left-dismiss logic
-                    InkWell(
-                      onTap: () => _passFighter(_filteredDeck.first),
-                      borderRadius: BorderRadius.circular(40),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          border: Border.all(color: const Color(0xFFFF3B30), width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.close, color: Color(0xFFFF3B30), size: 28),
-                      ),
                     ),
-                    const SizedBox(width: 36),
-
-                    // challenge button triggers right-dismiss logic
-                    InkWell(
-                      onTap: () => _challengeFighter(_filteredDeck.first),
-                      borderRadius: BorderRadius.circular(40),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          border: Border.all(color: const Color(0xFF34C759), width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.sports_mma, color: Color(0xFF34C759), size: 28),
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
-          ],
-        ),
       ),
     );
   }
 
-  // discipline filter chip builder mapping style enum to material filter chip
   Widget _buildFilterChip(String label, FightStyle? style) {
     final isSelected = _selectedStyle == style;
 
@@ -326,14 +362,13 @@ class _MatchScreenState extends State<MatchScreen> {
         onSelected: (_) {
           setState(() {
             _selectedStyle = style;
-            _resetDeck();
+            _applyFilter();
           });
         },
       ),
     );
   }
 
-  // empty deck state widget displayed when all cards in active filter have been swiped
   Widget _buildEmptyDeckState() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,

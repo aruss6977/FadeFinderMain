@@ -126,7 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Center(
                 child: user == null
                     ? FighterCard(fighter: mockFighters.first)
-                    : StreamBuilder<DocumentSnapshot>>(
+                    : StreamBuilder<DocumentSnapshot>(
                         // subscribe directly to document changes on the users collection
                         stream: FirebaseFirestore.instance
                             .collection('users')
@@ -147,7 +147,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           }
 
                           // unpack firestore document data and construct domain model
-                          final data = snapshot.data!.data()!;
+                          final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
                           final realFighter = _fighterFromSnapshot(data, user.uid);
                           return FighterCard(fighter: realFighter);
                         },
