@@ -1,17 +1,65 @@
 import 'package:flutter/material.dart';
-import '../data/mock_fighters.dart';
+
 import '../models/fighter.dart';
+import '../services/discovery_repository.dart';
 
 // arena voting screen supporting multiple matchups, vote locking, and corner switching
 // provides head-to-head comparison cards with real-time percentage distribution bars
 class VoteScreen extends StatefulWidget {
-  const VoteScreen({super.key});
+  const VoteScreen({super.key, this.repository});
+
+  final DiscoveryRepository? repository;
 
   @override
   State<VoteScreen> createState() => _VoteScreenState();
 }
 
 class _VoteScreenState extends State<VoteScreen> {
+  late final DiscoveryRepository _repository =
+      widget.repository ?? FirebaseDiscoveryRepository();
+  final List<Matchup> _matchups = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMatchups();
+  }
+
+  Future<void> _loadMatchups() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final fighters = await _repository.allFighters();
+      if (!mounted) return;
+      fighters.sort((a, b) => a.id.compareTo(b.id));
+      setState(() {
+        _matchups.clear();
+        for (var i = 0; i + 1 < fighters.length; i += 2) {
+          _matchups.add(
+            Matchup(
+              id: '${fighters[i].id}_${fighters[i + 1].id}',
+              fighterA: fighters[i],
+              fighterB: fighters[i + 1],
+            ),
+          );
+        }
+        _currentMatchupIndex = 0;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Could not load fighters. Check your connection and database permissions.';
+        });
+      }
+    }
+  }
+
   // pointer tracking the currently visible matchup index in the carousel
   int _currentMatchupIndex = 0;
 
@@ -20,7 +68,7 @@ class _VoteScreenState extends State<VoteScreen> {
   final Map<String, String> _userVotes = {};
 
   // dynamic getter returning the matchup currently active in viewport
-  Matchup get _currentMatchup => mockMatchups[_currentMatchupIndex];
+  Matchup get _currentMatchup => _matchups[_currentMatchupIndex];
 
   // casts or flips a user vote between corners without permitting duplicate ballots
   // adjusts tally counters atomically and updates the persistent selection map
@@ -91,7 +139,7 @@ class _VoteScreenState extends State<VoteScreen> {
 
   // navigates forward to the subsequent clash in the catalog
   void _goToNextMatchup() {
-    if (_currentMatchupIndex < mockMatchups.length - 1) {
+    if (_currentMatchupIndex < _matchups.length - 1) {
       setState(() {
         _currentMatchupIndex++;
       });
@@ -100,11 +148,36 @@ class _VoteScreenState extends State<VoteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading || _error != null || _matchups.isEmpty) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF7F5F0),
+        appBar: AppBar(title: const Text('ARENA MATCHUPS')),
+        body: Center(
+          child: _loading
+              ? const CircularProgressIndicator()
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _error ?? 'No account-created fighter matchups yet.',
+                      textAlign: TextAlign.center,
+                    ),
+                    TextButton(
+                      onPressed: _loadMatchups,
+                      child: const Text('Refresh'),
+                    ),
+                  ],
+                ),
+        ),
+      );
+    }
     final matchup = _currentMatchup;
     final userSelection = _userVotes[matchup.id];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0), // warm editorial background canvas
+      backgroundColor: const Color(
+        0xFFF7F5F0,
+      ), // warm editorial background canvas
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -117,6 +190,13 @@ class _VoteScreenState extends State<VoteScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _loadMatchups,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh matchups',
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -127,11 +207,17 @@ class _VoteScreenState extends State<VoteScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF1C1B1F), size: 18),
-                  onPressed: _currentMatchupIndex > 0 ? _goToPreviousMatchup : null,
+                  icon: const Icon(
+                    Icons.arrow_back_ios,
+                    color: Color(0xFF1C1B1F),
+                    size: 18,
+                  ),
+                  onPressed: _currentMatchupIndex > 0
+                      ? _goToPreviousMatchup
+                      : null,
                 ),
                 Text(
-                  'MATCHUP ${_currentMatchupIndex + 1} OF ${mockMatchups.length}',
+                  'MATCHUP ${_currentMatchupIndex + 1} OF ${_matchups.length}',
                   style: const TextStyle(
                     color: Color(0xFF1C1B1F),
                     fontWeight: FontWeight.bold,
@@ -140,8 +226,14 @@ class _VoteScreenState extends State<VoteScreen> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.arrow_forward_ios, color: Color(0xFF1C1B1F), size: 18),
-                  onPressed: _currentMatchupIndex < mockMatchups.length - 1 ? _goToNextMatchup : null,
+                  icon: const Icon(
+                    Icons.arrow_forward_ios,
+                    color: Color(0xFF1C1B1F),
+                    size: 18,
+                  ),
+                  onPressed: _currentMatchupIndex < _matchups.length - 1
+                      ? _goToNextMatchup
+                      : null,
                 ),
               ],
             ),
@@ -192,13 +284,19 @@ class _VoteScreenState extends State<VoteScreen> {
 
                       // central vs circular divider icon
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 40.0),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10.0,
+                          vertical: 40.0,
+                        ),
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: const Color(0xFF1C1B1F),
-                            border: Border.all(color: const Color(0xFFFF3B30), width: 2),
+                            border: Border.all(
+                              color: const Color(0xFFFF3B30),
+                              width: 2,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.15),
@@ -270,7 +368,9 @@ class _VoteScreenState extends State<VoteScreen> {
                       value: matchup.percentageA / 100,
                       minHeight: 12,
                       backgroundColor: const Color(0xFF007AFF),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFF3B30)),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFFFF3B30),
+                      ),
                     ),
                   ),
                 ],
@@ -312,10 +412,7 @@ class _VoteScreenState extends State<VoteScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               gradient: LinearGradient(
-                colors: [
-                  styleTheme,
-                  const Color(0xFF1C1B1F),
-                ],
+                colors: [styleTheme, const Color(0xFF1C1B1F)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -365,7 +462,9 @@ class _VoteScreenState extends State<VoteScreen> {
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: isSelected ? const Color(0xFF1C1B1F) : cornerColor,
+                backgroundColor: isSelected
+                    ? const Color(0xFF1C1B1F)
+                    : cornerColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 shape: RoundedRectangleBorder(
@@ -375,7 +474,10 @@ class _VoteScreenState extends State<VoteScreen> {
               onPressed: onVote,
               child: Text(
                 isSelected ? 'YOUR PICK ✓' : 'PICK WIN',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),

@@ -1,14 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../data/mock_fighters.dart';
+import '../data/challenge_state.dart';
 import '../models/fighter.dart';
 import '../widgets/fighter_card.dart';
 
 // profile tab displaying the logged-in user combat card and persistent challenge ledger
 // listens to live firestore document updates and manages issued sparring invitations
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.profileStream});
+
+  final Stream<Map<String, dynamic>>? profileStream;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -66,13 +68,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Fighter(
       id: uid,
-      name: data['name'] as String? ?? 'Unknown Fighter',
+      name: (data['fighterName'] as String?)?.trim().isNotEmpty == true
+          ? (data['fighterName'] as String).trim()
+          : (data['name'] as String? ?? 'Unknown Fighter'),
       age: (data['age'] as num?)?.toInt() ?? 25,
       heightInches: (data['heightInches'] as num?)?.toInt() ?? 70,
       weightLbs: (data['weightLbs'] as num?)?.toDouble() ?? 155.0,
       style: parsedStyle,
       bio: data['bio'] as String? ?? 'Ready to step into the ring.',
-      signatureMove: data['signatureMove'] as String? ?? 'Overhand Right',
+      signatureMove: data['signatureMove'] as String? ?? 'None',
       powerRating: (data['powerRating'] as num?)?.toInt() ?? 85,
       record: data['record'] as String? ?? '0-0-0',
     );
@@ -81,7 +85,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     // resolve the currently authenticated firebase user instance
-    final user = FirebaseAuth.instance.currentUser;
+    final user = widget.profileStream == null
+        ? FirebaseAuth.instance.currentUser
+        : null;
+    final profileStream =
+        widget.profileStream ??
+        (user == null
+            ? null
+            : FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .snapshots()
+                  .map((snapshot) => snapshot.data() ?? <String, dynamic>{}));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5F0), // warm parchment editorial canvas
@@ -106,6 +121,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: () async {
                 // invalidate session and tear down firebase tokens
                 await FirebaseAuth.instance.signOut();
+                activeChallenges.clear();
                 // verify widget is still mounted in element tree before triggering navigation
                 if (context.mounted) {
                   Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
@@ -124,14 +140,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               // dynamic athlete digital combat card powered by live firestore stream
               Center(
-                child: user == null
-                    ? FighterCard(fighter: mockFighters.first)
-                    : StreamBuilder<DocumentSnapshot>>(
-                        // subscribe directly to document changes on the users collection
-                        stream: FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(user.uid)
-                            .snapshots(),
+                child: profileStream == null
+                    ? const Text('Sign in to view your fighter profile.')
+                    : StreamBuilder<Map<String, dynamic>>(
+                        stream: profileStream,
                         builder: (context, snapshot) {
                           // display centered activity indicator while initial snapshot resolves
                           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -141,15 +153,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             );
                           }
 
-                          // fallback to mock card if cloud document has not yet initialized
-                          if (!snapshot.hasData || !snapshot.data!.exists) {
-                            return FighterCard(fighter: mockFighters.first);
+                          if (snapshot.hasError) {
+                            return const Text('Could not load your fighter profile.');
+                          }
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return const Text('Your fighter profile was not found.');
                           }
 
                           // unpack firestore document data and construct domain model
-                          final data = snapshot.data!.data()!;
-                          final realFighter = _fighterFromSnapshot(data, user.uid);
-                          return FighterCard(fighter: realFighter);
+                          final data = snapshot.data!;
+                          final realFighter = _fighterFromSnapshot(
+                            data,
+                            user?.uid ?? 'preview',
+                          );
+                          return FighterCard(
+                            fighter: realFighter,
+                            profileEmail: data['email'] as String? ?? '',
+                          );
                         },
                       ),
               ),
