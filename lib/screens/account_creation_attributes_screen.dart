@@ -128,16 +128,18 @@ class _AccountCreationAttributesScreenState
 
     setState(() => _isSubmitting = true);
     try {
-      await widget.createAccount(AccountCreationData(
-        email: widget.email,
-        username: widget.username,
-        fighterName: _fighterNameController.text.trim(),
-        password: widget.password,
-        heightInches: int.parse(_heightController.text.trim()),
-        weightLbs: double.parse(_weightController.text.trim()),
-        age: int.parse(_ageController.text.trim()),
-        style: _fightStyle,
-      ));
+      await widget.createAccount(
+        AccountCreationData(
+          email: widget.email,
+          username: widget.username,
+          fighterName: _fighterNameController.text.trim(),
+          password: widget.password,
+          heightInches: int.parse(_heightController.text.trim()),
+          weightLbs: double.parse(_weightController.text.trim()),
+          age: int.parse(_ageController.text.trim()),
+          style: _fightStyle,
+        ),
+      );
       if (!mounted) return;
 
       final navigator = Navigator.of(context);
@@ -155,20 +157,25 @@ class _AccountCreationAttributesScreenState
         ),
       );
     } on FirebaseAuthException catch (error) {
-      debugPrint('Firebase Auth account creation failed: ${error.code}: ${error.message}');
-      _showError(error.code == 'email-already-in-use'
-          ? 'That username is already taken.'
-          : 'Account creation failed (${error.code}): ${error.message ?? 'Please try again.'}');
+      debugPrint(
+        'Firebase Auth account creation failed: ${error.code}: ${error.message}',
+      );
+      _showError(
+        error.code == 'email-already-in-use'
+            ? 'That username is already taken.'
+            : 'Account creation failed (${error.code}): ${error.message ?? 'Please try again.'}',
+      );
     } on FirebaseException catch (error) {
-      debugPrint('Firebase profile save failed: ${error.code}: ${error.message}');
+      debugPrint(
+        'Firebase profile save failed: ${error.code}: ${error.message}',
+      );
       final message = switch (error.code) {
-        'permission-denied' =>
-          'Firestore denied the profile save (permission-denied). Check the users collection security rules.',
+        'permission-denied' => 'Firestore denied the profile save. Check the users collection security rules.',
         'not-found' || 'failed-precondition' =>
           'Cloud Firestore is not ready (${error.code}). Check that a database exists for this Firebase project.',
-        'unavailable' =>
-          'Cloud Firestore is unavailable. Check your connection and try again.',
-        _ => 'Could not save profile (${error.code}): ${error.message ?? 'Please try again.'}',
+        'unavailable' => 'Cloud Firestore is unavailable. Check your connection and try again.',
+        _ =>
+          'Could not save profile (${error.code}): ${error.message ?? 'Please try again.'}',
       };
       _showError(message);
     } catch (error, stackTrace) {
@@ -213,7 +220,9 @@ class _AccountCreationAttributesScreenState
                 TextFormField(
                   controller: _weightController,
                   style: const TextStyle(color: Colors.white),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: _fieldDecoration('Weight (lbs)'),
                   validator: (value) {
                     final weight = double.tryParse(value?.trim() ?? '');
@@ -250,10 +259,12 @@ class _AccountCreationAttributesScreenState
                   style: const TextStyle(color: Colors.white),
                   decoration: _fieldDecoration('Fight style (optional)'),
                   items: FightStyle.values
-                      .map((style) => DropdownMenuItem(
-                            value: style,
-                            child: Text(style.label),
-                          ))
+                      .map(
+                        (style) => DropdownMenuItem(
+                          value: style,
+                          child: Text(style.label),
+                        ),
+                      )
                       .toList(),
                   onChanged: (style) => setState(() => _fightStyle = style),
                 ),
@@ -264,7 +275,9 @@ class _AccountCreationAttributesScreenState
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.black,
                   ),
-                  child: Text(_isSubmitting ? 'Creating account...' : 'Continue'),
+                  child: Text(
+                    _isSubmitting ? 'Creating account...' : 'Continue',
+                  ),
                 ),
               ],
             ),
