@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/challenge_state.dart';
+import '../data/app_state.dart';
 import '../models/fighter.dart';
 import '../services/discovery_repository.dart';
 import '../widgets/fighter_card.dart';
@@ -55,7 +55,9 @@ class _MatchScreenState extends State<MatchScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = error is StateError ? error.message : 'Could not load fighters. Check your connection and database permissions.';
+        _error = error is StateError
+            ? error.message
+            : 'Could not load fighters. Check your connection and database permissions.';
       });
     }
   }
@@ -84,13 +86,16 @@ class _MatchScreenState extends State<MatchScreen> {
       _history.add(_SwipeAction(fighter, challenge));
       if (challenge && !activeChallenges.any((f) => f.id == fighter.id)) {
         activeChallenges.add(fighter);
+        getOrCreateChatThread(fighter);
       }
     });
     try {
       await _repository.recordSwipe(fighter.id);
       if (mounted) {
         _showMessage(
-          challenge ? 'Challenge sent to ${fighter.name}' : 'Fighter passed',
+          challenge
+              ? 'Challenge sent to ${fighter.name}'
+              : 'Fighter passed',
         );
       }
     } catch (_) {
@@ -151,139 +156,142 @@ class _MatchScreenState extends State<MatchScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Text(_error!, textAlign: TextAlign.center),
-                  ),
-                  TextButton(onPressed: _load, child: const Text('Retry')),
-                ],
-              ),
-            )
-          : SafeArea(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(
-                      '${_data!.weightClass.label.toUpperCase()} FIGHTERS',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Text(_error!, textAlign: TextAlign.center),
                       ),
-                    ),
+                      TextButton(onPressed: _load, child: const Text('Retry')),
+                    ],
                   ),
-                  SizedBox(
-                    height: 44,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      children: [
+                )
+              : SafeArea(
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          '${_data!.weightClass.label.toUpperCase()} FIGHTERS',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 44,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          children: [
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: ChoiceChip(
+                                label: const Text('All styles'),
+                                selected: _selectedStyle == null,
+                                onSelected: (_) =>
+                                    setState(() => _selectedStyle = null),
+                              ),
+                            ),
+                            ...FightStyle.values.map(
+                              (style) => Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 4),
+                                child: ChoiceChip(
+                                  label: Text(style.label),
+                                  selected: _selectedStyle == style,
+                                  onSelected: (_) =>
+                                      setState(() => _selectedStyle = style),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: Center(
+                          child: fighter == null
+                              ? Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Text(
+                                    _available(null).isEmpty
+                                        ? 'there are no more users who want to catch a fade'
+                                        : 'No fighters match this style.',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                              : Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: GestureDetector(
+                                    key: ValueKey(fighter.id),
+                                    onHorizontalDragEnd: _busy
+                                        ? null
+                                        : (details) {
+                                            final velocity =
+                                                details.primaryVelocity ?? 0;
+                                            if (velocity.abs() > 250) {
+                                              _swipe(
+                                                fighter,
+                                                challenge: velocity > 0,
+                                              );
+                                            }
+                                          },
+                                    child: SingleChildScrollView(
+                                      child: FighterCard(fighter: fighter),
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ),
+                      if (fighter != null)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: ChoiceChip(
-                            label: const Text('All styles'),
-                            selected: _selectedStyle == null,
-                            onSelected: (_) =>
-                                setState(() => _selectedStyle = null),
-                          ),
-                        ),
-                        ...FightStyle.values.map(
-                          (style) => Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: ChoiceChip(
-                              label: Text(style.label),
-                              selected: _selectedStyle == style,
-                              onSelected: (_) =>
-                                  setState(() => _selectedStyle = style),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: Center(
-                      child: fighter == null
-                          ? Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Text(
-                                _available(null).isEmpty
-                                    ? 'there are no more users who want to catch a fade'
-                                    : 'No fighters match this style.',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          : Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: GestureDetector(
-                                key: ValueKey(fighter.id),
-                                onHorizontalDragEnd: _busy
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                          child: Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceEvenly,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: _busy
                                     ? null
-                                    : (details) {
-                                        final velocity =
-                                            details.primaryVelocity ?? 0;
-                                        if (velocity.abs() > 250) {
-                                          _swipe(
-                                            fighter,
-                                            challenge: velocity > 0,
-                                          );
-                                        }
-                                      },
-                                child: SingleChildScrollView(
-                                  child: FighterCard(fighter: fighter),
+                                    : () => _swipe(fighter, challenge: false),
+                                icon: const Icon(Icons.close),
+                                label: const Text('PASS'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFF3B30),
+                                  foregroundColor: Colors.white,
                                 ),
                               ),
-                            ),
-                    ),
-                  ),
-                  if (fighter != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: _busy
-                                ? null
-                                : () => _swipe(fighter, challenge: false),
-                            icon: const Icon(Icons.close),
-                            label: const Text('PASS'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF3B30),
-                              foregroundColor: Colors.white,
-                            ),
+                              ElevatedButton.icon(
+                                onPressed: _busy
+                                    ? null
+                                    : () => _swipe(fighter, challenge: true),
+                                icon: const Icon(Icons.sports_mma),
+                                label: const Text('CHALLENGE'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF34C759),
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ],
                           ),
-                          ElevatedButton.icon(
-                            onPressed: _busy
-                                ? null
-                                : () => _swipe(fighter, challenge: true),
-                            icon: const Icon(Icons.sports_mma),
-                            label: const Text('CHALLENGE'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF34C759),
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ],
+                        ),
+                      TextButton.icon(
+                        onPressed: _busy || _history.isEmpty ? null : _undo,
+                        icon: const Icon(Icons.undo),
+                        label: const Text('Undo last swipe'),
                       ),
-                    ),
-                  TextButton.icon(
-                    onPressed: _busy || _history.isEmpty ? null : _undo,
-                    icon: const Icon(Icons.undo),
-                    label: const Text('Undo last swipe'),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
     );
   }
 }
