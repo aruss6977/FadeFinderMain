@@ -1,10 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../data/mock_fighters.dart';
+import '../data/app_state.dart';
 import '../models/chat.dart';
 import '../models/fighter.dart';
 
-// screen for coordinating bout details between fighters
 class ChatConversationScreen extends StatefulWidget {
   final ChatThread thread;
 
@@ -20,6 +20,16 @@ class ChatConversationScreen extends StatefulWidget {
 class _ChatConversationScreenState extends State<ChatConversationScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  late final String _chatDocId;
+  String? _currentUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'current_user';
+    final participants = [_currentUserId!, widget.thread.opponent.id]..sort();
+    _chatDocId = 'chat_${participants[0]}_${participants[1]}';
+  }
 
   @override
   void dispose() {
@@ -47,23 +57,44 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     return '$hour:$minute $ampm';
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
-    setState(() {
-      widget.thread.messages.add(
-        ChatMessage(
-          id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
-          senderId: 'current_user',
-          text: text,
-          timestamp: DateTime.now(),
-          isFromMe: true,
-        ),
-      );
-    });
-
+    final myUid = _currentUserId ?? 'current_user';
     _messageController.clear();
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(_chatDocId)
+          .collection('messages')
+          .add({
+        'senderId': myUid,
+        'text': text,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      await FirebaseFirestore.instance.collection('chats').doc(_chatDocId).set({
+        'participants': [myUid, widget.thread.opponent.id],
+        'lastMessage': text,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {
+      setState(() {
+        widget.thread.messages.add(
+          ChatMessage(
+            id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
+            senderId: myUid,
+            text: text,
+            timestamp: DateTime.now(),
+            isFromMe: true,
+          ),
+        );
+      });
+      activeChatThreadsNotifier.value = List.from(activeChatThreadsNotifier.value);
+    }
+
     _scrollToBottom();
   }
 
@@ -120,6 +151,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   Widget build(BuildContext context) {
     final opponent = widget.thread.opponent;
     final styleColor = opponent.style?.themeColor ?? const Color(0xFF1C1B1F);
+    final myUid = _currentUserId ?? 'current_user';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5F0),
@@ -221,45 +253,85 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         child: Column(
           children: [
             Expanded(
-              child: widget.thread.messages.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            opponent.style?.icon ?? Icons.sports_mma,
-                            size: 40,
-                            color: const Color(0xFF79747E),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Chat started with ${opponent.name}',
-                            style: const TextStyle(
-                              color: Color(0xFF1C1B1F),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('chats')
+                    .doc(_chatDocId)
+                    .collection('messages')
+                    .orderBy('timestamp', descending: false)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    if (widget.thread.messages.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              opponent.style?.icon ?? Icons.sports_mma,
+                              size: 40,
+                              color: const Color(0xFF79747E),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Coordinate sparring rules, gym location, and round duration.',
-                            style: TextStyle(
-                              color: Color(0xFF79747E),
-                              fontSize: 12,
+                            const SizedBox(height: 10),
+                            Text(
+                              'Chat started with ${opponent.name}',
+                              style: const TextStyle(
+                                color: Color(0xFF1C1B1F),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Coordinate sparring rules, gym location, and round duration.',
+                              style: TextStyle(
+                                color: Color(0xFF79747E),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
                       controller: _scrollController,
                       padding: const EdgeInsets.all(16),
                       itemCount: widget.thread.messages.length,
                       itemBuilder: (context, index) {
                         final msg = widget.thread.messages[index];
-                        return _buildMessageBubble(msg);
+                        return _buildBubble(
+                          text: msg.text,
+                          timeText: _formatDateTime(msg.timestamp),
+                          isMe: msg.isFromMe,
+                        );
                       },
-                    ),
+                    );
+                  }
+
+                  final docs = snapshot.data!.docs;
+                  WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+
+                  return ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: docs.length,
+                    itemBuilder: (context, index) {
+                      final data = docs[index].data() as Map<String, dynamic>;
+                      final senderId = data['senderId'] as String? ?? '';
+                      final text = data['text'] as String? ?? '';
+                      final ts = (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
+                      final isMe = senderId == myUid;
+
+                      return _buildBubble(
+                        text: text,
+                        timeText: _formatDateTime(ts),
+                        isMe: isMe,
+                      );
+                    },
+                  );
+                },
+              ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -311,8 +383,11 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message) {
-    final isMe = message.isFromMe;
+  Widget _buildBubble({
+    required String text,
+    required String timeText,
+    required bool isMe,
+  }) {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -333,7 +408,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Text(
-              message.text,
+              text,
               style: TextStyle(
                 color: isMe ? Colors.white : const Color(0xFF1C1B1F),
                 fontSize: 13,
@@ -341,7 +416,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
             ),
             const SizedBox(height: 3),
             Text(
-              _formatDateTime(message.timestamp),
+              timeText,
               style: TextStyle(
                 color: isMe ? Colors.white60 : const Color(0xFF79747E),
                 fontSize: 9,
