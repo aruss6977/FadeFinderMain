@@ -4,19 +4,55 @@ import 'package:flutter/material.dart';
 import '../data/challenge_state.dart';
 import '../models/fighter.dart';
 import '../widgets/fighter_card.dart';
+import 'edit_profile_screen.dart';
 
 // profile tab displaying the logged-in user combat card and persistent challenge ledger
 // listens to live firestore document updates and manages issued sparring invitations
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, this.profileStream});
+  const ProfileScreen({super.key, this.profileStream, this.onProfileSaved});
 
   final Stream<Map<String, dynamic>>? profileStream;
+  final VoidCallback? onProfileSaved;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  Future<void> _editProfile(Map<String, dynamic> data, User user) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(
+          profile: data,
+          onSave: (changes) => FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .update({
+                'fighterName': changes.fighterName,
+                'heightInches': changes.heightInches,
+                'weightLbs': changes.weightLbs,
+                'age': changes.age,
+                'style': changes.style?.name ?? FieldValue.delete(),
+              }),
+          onVerifyOldPassword: (password) async {
+            final authEmail = user.email;
+            if (authEmail == null) {
+              throw StateError('This account has no password sign-in email.');
+            }
+            await user.reauthenticateWithCredential(
+              EmailAuthProvider.credential(
+                email: authEmail,
+                password: password,
+              ),
+            );
+          },
+          onUpdatePassword: user.updatePassword,
+        ),
+      ),
+    );
+    if (mounted && saved == true) widget.onProfileSaved?.call();
+  }
+
   // removes an athlete from the active challenges queue and refreshes the ledger view
   // syncs state immediately with the shared in-memory activeChallenges list
   void _withdrawChallenge(String fighterId) {
@@ -166,9 +202,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             data,
                             user?.uid ?? 'preview',
                           );
-                          return FighterCard(
-                            fighter: realFighter,
-                            profileEmail: data['email'] as String? ?? '',
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              FighterCard(
+                                fighter: realFighter,
+                                profileEmail: data['email'] as String? ?? '',
+                              ),
+                              if (user != null) ...[
+                                const SizedBox(height: 14),
+                                FilledButton.icon(
+                                  onPressed: () => _editProfile(data, user),
+                                  icon: const Icon(Icons.edit_outlined),
+                                  label: const Text('Edit profile'),
+                                ),
+                              ],
+                            ],
                           );
                         },
                       ),

@@ -8,6 +8,13 @@ String normalizedUsername(String username) => username.trim().toLowerCase();
 bool isValidUsername(String username) =>
     RegExp(r'^[a-z0-9_]{3,24}$').hasMatch(normalizedUsername(username));
 
+bool isQualifyingPassword(String password) =>
+    password.length >= 8 &&
+    RegExp(r'[a-z]').hasMatch(password) &&
+    RegExp(r'[A-Z]').hasMatch(password) &&
+    RegExp(r'[0-9]').hasMatch(password) &&
+    RegExp(r'[^a-zA-Z0-9\s]').hasMatch(password);
+
 String authEmailForUsername(String username) {
   final key = normalizedUsername(username);
   if (!isValidUsername(key)) {
