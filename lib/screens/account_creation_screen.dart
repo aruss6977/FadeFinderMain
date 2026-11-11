@@ -119,11 +119,7 @@ class _AccountCreationScreenState extends State<AccountCreationScreen> {
                   decoration: _fieldDecoration('Password'),
                   validator: (value) {
                     final password = value ?? '';
-                    if (password.length < 8 ||
-                        !RegExp(r'[a-z]').hasMatch(password) ||
-                        !RegExp(r'[A-Z]').hasMatch(password) ||
-                        !RegExp(r'[0-9]').hasMatch(password) ||
-                        !RegExp(r'[^a-zA-Z0-9\s]').hasMatch(password)) {
+                    if (!isQualifyingPassword(password)) {
                       return 'Password does not meet the requirements';
                     }
                     return null;

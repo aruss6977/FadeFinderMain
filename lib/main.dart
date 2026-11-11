@@ -79,13 +79,7 @@ class MainNavigationShell extends StatefulWidget {
 class _MainNavigationShellState extends State<MainNavigationShell> {
   // tracks active tab index displayed in viewport
   int _selectedTabIndex = 0;
-
-  // primary destination screens mounted inside the shell indexed stack
-  final List<Widget> _screens = const [
-    MatchScreen(),
-    VoteScreen(),
-    ProfileScreen(),
-  ];
+  int _profileVersion = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +87,13 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       // indexed stack maintains state and scroll offsets across tab switches
       body: IndexedStack(
         index: _selectedTabIndex,
-        children: _screens,
+        children: [
+          MatchScreen(key: ValueKey('match-$_profileVersion')),
+          VoteScreen(key: ValueKey('vote-$_profileVersion')),
+          ProfileScreen(
+            onProfileSaved: () => setState(() => _profileVersion++),
+          ),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedTabIndex,
