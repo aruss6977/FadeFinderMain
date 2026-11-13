@@ -41,6 +41,14 @@ void main() {
     weightLbs: 154,
     style: FightStyle.boxing,
   );
+  const wrestler = Fighter(
+    id: 'wrestler',
+    name: 'Grappler',
+    age: 24,
+    heightInches: 68,
+    weightLbs: 152,
+    style: FightStyle.wrestling,
+  );
   const swiped = Fighter(
     id: 'swiped',
     name: 'Swiped',
@@ -145,5 +153,33 @@ void main() {
       find.text('there are no more users who want to catch a fade'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('style filter chips filter fighters on match screen', (
+    tester,
+  ) async {
+    final repository = _FakeDiscoveryRepository(
+      const DiscoveryData(
+        currentUserId: 'self',
+        weightClass: WeightClass.lightweight,
+        fighters: [self, wrestler, sameClass],
+        swipedIds: {},
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: MatchScreen(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('GRAPPLER'), findsOneWidget);
+
+    await tester.tap(find.text('Boxing'));
+    await tester.pumpAndSettle();
+    expect(find.text('GRAPPLER'), findsNothing);
+    expect(find.text('SAME'), findsOneWidget);
+
+    await tester.tap(find.text('All styles'));
+    await tester.pumpAndSettle();
+    expect(find.text('GRAPPLER'), findsOneWidget);
   });
 }
