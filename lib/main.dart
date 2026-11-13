@@ -70,6 +70,7 @@ class MainNavigationShell extends StatefulWidget {
 
 class _MainNavigationShellState extends State<MainNavigationShell> {
   int _selectedTabIndex = 0;
+  int _profileVersion = 0;
 
   final List<Widget> _screens = const [
     MatchScreen(),
@@ -83,7 +84,13 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     return Scaffold(
       body: IndexedStack(
         index: _selectedTabIndex,
-        children: _screens,
+        children: [
+          MatchScreen(key: ValueKey('match-$_profileVersion')),
+          VoteScreen(key: ValueKey('vote-$_profileVersion')),
+          ProfileScreen(
+            onProfileSaved: () => setState(() => _profileVersion++),
+          ),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedTabIndex,
