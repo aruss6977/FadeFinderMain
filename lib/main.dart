@@ -72,13 +72,6 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   int _selectedTabIndex = 0;
   int _profileVersion = 0;
 
-  final List<Widget> _screens = const [
-    MatchScreen(),
-    VoteScreen(),
-    ChatListScreen(),
-    ProfileScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,6 +80,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         children: [
           MatchScreen(key: ValueKey('match-$_profileVersion')),
           VoteScreen(key: ValueKey('vote-$_profileVersion')),
+          const ChatListScreen(),
           ProfileScreen(
             onProfileSaved: () => setState(() => _profileVersion++),
           ),
